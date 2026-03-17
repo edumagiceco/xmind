@@ -43,6 +43,7 @@ function removeTopic(parent: Topic, targetId: string): Topic | null {
 export interface DocumentState {
   workbook: Workbook;
   activeSheetId: string;
+  isDirty: boolean;
 
   // Getters
   getActiveSheet: () => Sheet;
@@ -51,6 +52,7 @@ export interface DocumentState {
   // Workbook operations
   setWorkbook: (workbook: Workbook) => void;
   newWorkbook: () => void;
+  markSaved: () => void;
 
   // Topic operations
   updateTopicTitle: (topicId: string, title: string) => void;
@@ -91,6 +93,7 @@ export const useDocumentStore = create<DocumentState>()(
     (set, get) => ({
       workbook: initialWorkbook,
       activeSheetId: initialWorkbook.sheets[0].id,
+      isDirty: false,
 
       getActiveSheet: () => {
         const state = get();
@@ -102,12 +105,14 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       setWorkbook: (workbook: Workbook) =>
-        set({ workbook, activeSheetId: workbook.sheets[0].id }),
+        set({ workbook, activeSheetId: workbook.sheets[0].id, isDirty: false }),
 
       newWorkbook: () => {
         const wb = createInitialWorkbook();
-        set({ workbook: wb, activeSheetId: wb.sheets[0].id });
+        set({ workbook: wb, activeSheetId: wb.sheets[0].id, isDirty: false });
       },
+
+      markSaved: () => set({ isDirty: false }),
 
       updateTopicTitle: (topicId: string, title: string) =>
         set((state) => {
@@ -118,7 +123,7 @@ export const useDocumentStore = create<DocumentState>()(
             result[0].title = title;
           }
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       addChildTopic: (parentId: string) => {
@@ -134,7 +139,7 @@ export const useDocumentStore = create<DocumentState>()(
             parent.collapsed = false;
           }
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         });
         return newId;
       },
@@ -161,7 +166,7 @@ export const useDocumentStore = create<DocumentState>()(
             }
           }
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         });
         return newId;
       },
@@ -178,7 +183,7 @@ export const useDocumentStore = create<DocumentState>()(
             removeTopic(result[1], topicId);
           }
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       toggleCollapse: (topicId: string) =>
@@ -189,7 +194,7 @@ export const useDocumentStore = create<DocumentState>()(
           if (result) {
             result[0].collapsed = !result[0].collapsed;
           }
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       moveTopic: (topicId: string, newParentId: string, index?: number) =>
@@ -215,7 +220,7 @@ export const useDocumentStore = create<DocumentState>()(
           }
 
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
       updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) =>
         set((state) => {
@@ -227,7 +232,7 @@ export const useDocumentStore = create<DocumentState>()(
             result[0].style = Object.keys(merged).length > 0 ? merged : undefined;
           }
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       setSheetStructure: (structure: StructureType) =>
@@ -236,7 +241,7 @@ export const useDocumentStore = create<DocumentState>()(
           const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
           sheet.structure = structure;
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       setSheetTheme: (themeId: string) =>
@@ -245,7 +250,7 @@ export const useDocumentStore = create<DocumentState>()(
           const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
           sheet.theme = themeId;
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
 
       updateMapSettings: (settings: Partial<MapSettings>) =>
@@ -254,7 +259,7 @@ export const useDocumentStore = create<DocumentState>()(
           const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
           sheet.mapSettings = { ...sheet.mapSettings, ...settings };
           workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook };
+          return { workbook, isDirty: true };
         }),
     }),
     { limit: 100 },

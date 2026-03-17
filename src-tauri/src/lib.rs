@@ -1,6 +1,6 @@
 mod file_io;
 
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -29,6 +29,9 @@ pub fn run() {
             let save_as = MenuItemBuilder::with_id("save_as", "Save As...")
                 .accelerator("CmdOrCtrl+Shift+S")
                 .build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Quit MindForge")
+                .accelerator("CmdOrCtrl+Q")
+                .build(app)?;
 
             let undo = MenuItemBuilder::with_id("undo", "Undo")
                 .accelerator("CmdOrCtrl+Z")
@@ -36,6 +39,17 @@ pub fn run() {
             let redo = MenuItemBuilder::with_id("redo", "Redo")
                 .accelerator("CmdOrCtrl+Shift+Z")
                 .build(app)?;
+
+            // App menu (macOS: first menu is the app name menu)
+            let app_menu = SubmenuBuilder::new(app, "MindForge")
+                .item(&PredefinedMenuItem::about(app, Some("About MindForge"), None)?)
+                .separator()
+                .item(&PredefinedMenuItem::hide(app, None)?)
+                .item(&PredefinedMenuItem::hide_others(app, None)?)
+                .item(&PredefinedMenuItem::show_all(app, None)?)
+                .separator()
+                .item(&quit)
+                .build()?;
 
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_file)
@@ -55,9 +69,18 @@ pub fn run() {
                 .select_all()
                 .build()?;
 
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .item(&PredefinedMenuItem::minimize(app, None)?)
+                .item(&PredefinedMenuItem::maximize(app, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::fullscreen(app, None)?)
+                .build()?;
+
             let menu = MenuBuilder::new(app)
+                .item(&app_menu)
                 .item(&file_menu)
                 .item(&edit_menu)
+                .item(&window_menu)
                 .build()?;
 
             app.set_menu(menu)?;
@@ -73,6 +96,7 @@ pub fn run() {
                     "save_as" => { let _ = app_handle.emit("menu-event", "save_as"); }
                     "undo" => { let _ = app_handle.emit("menu-event", "undo"); }
                     "redo" => { let _ = app_handle.emit("menu-event", "redo"); }
+                    "quit" => { let _ = app_handle.emit("menu-event", "quit"); }
                     _ => {}
                 }
             });

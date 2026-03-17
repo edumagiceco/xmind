@@ -37,6 +37,7 @@ export async function saveFile(saveAs = false) {
   });
 
   currentFilePath = path;
+  useDocumentStore.getState().markSaved();
 }
 
 export async function openFile() {
