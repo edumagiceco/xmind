@@ -1,5 +1,10 @@
 mod file_io;
 
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -18,6 +23,7 @@ pub fn run() {
             file_io::save_file,
             file_io::open_file,
             file_io::new_file_path,
+            quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

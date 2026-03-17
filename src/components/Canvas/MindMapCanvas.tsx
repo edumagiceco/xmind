@@ -3,7 +3,7 @@ import { CanvasRenderer } from '../../canvas/CanvasRenderer';
 import { computeLayout } from '../../layout/LayoutEngine';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
-import { saveFile, openFile } from '../../services/tauriBridge';
+import { saveFile, openFile, quitApp } from '../../services/tauriBridge';
 import type { LayoutResult } from '../../layout/types';
 import type { Topic } from '../../model/types';
 
@@ -323,6 +323,11 @@ export function MindMapCanvas() {
             ui.clearSelection();
             ui.resetView();
           }).catch(console.error);
+          return;
+        }
+        if (e.key === 'q' || e.key === 'Q') {
+          e.preventDefault();
+          quitApp().catch(console.error);
           return;
         }
       }

@@ -60,3 +60,7 @@ export function newFile() {
   useDocumentStore.getState().newWorkbook();
   currentFilePath = null;
 }
+
+export async function quitApp() {
+  await invoke('quit_app');
+}

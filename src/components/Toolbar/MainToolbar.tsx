@@ -1,11 +1,11 @@
 import {
   Plus, Minus, RotateCcw, ZoomIn, ZoomOut,
   Undo2, Redo2, FileDown, FolderOpen, FilePlus,
-  PanelRight,
+  PanelRight, LogOut,
 } from 'lucide-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
-import { saveFile, openFile, newFile } from '../../services/tauriBridge';
+import { saveFile, openFile, newFile, quitApp } from '../../services/tauriBridge';
 
 export function MainToolbar() {
   const addChildTopic = useDocumentStore((s) => s.addChildTopic);
@@ -59,6 +59,7 @@ export function MainToolbar() {
       <ToolbarButton icon={<FilePlus size={18} />} title="New" onClick={handleNew} />
       <ToolbarButton icon={<FolderOpen size={18} />} title="Open" onClick={handleOpen} />
       <ToolbarButton icon={<FileDown size={18} />} title="Save (⌘S)" onClick={handleSave} />
+      <ToolbarButton icon={<LogOut size={18} />} title="Quit (⌘Q)" onClick={() => quitApp()} />
 
       <Divider />
 
