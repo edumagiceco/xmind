@@ -1,4 +1,4 @@
-import type { LayoutNode, TopicStyle, MapSettings } from '../model/types';
+import type { LayoutNode, TopicStyle, MapSettings, StructureType } from '../model/types';
 import type { LayoutResult } from '../layout/types';
 import { Camera } from './Camera';
 import { getTopicStyle, getTheme } from '../themes/ThemeEngine';
@@ -15,6 +15,7 @@ export class CanvasRenderer {
   private hoveredId: string | null = null;
   private themeId = 'default';
   private mapSettings: MapSettings | undefined;
+  private structureType: StructureType = 'mind-map';
   private needsRender = true;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -61,6 +62,11 @@ export class CanvasRenderer {
 
   setMapSettings(settings: MapSettings | undefined) {
     this.mapSettings = settings;
+    this.needsRender = true;
+  }
+
+  setStructureType(type: StructureType) {
+    this.structureType = type;
     this.needsRender = true;
   }
 
@@ -129,7 +135,18 @@ export class CanvasRenderer {
       const parentCenterY = node.y + node.height / 2;
       const childCenterY = child.y + child.height / 2;
 
-      if (child.branchDirection === 'down') {
+      if (child.branchDirection === 'down' && this.structureType === 'tree-chart') {
+        // Tree Chart: orthogonal L-shaped lines
+        // Vertical line from parent's left-bottom area, then horizontal to child
+        const trunkX = node.x + 8;
+        const startY = node.y + node.height;
+        const endY = child.y + child.height / 2;
+
+        this.ctx.moveTo(trunkX, startY);
+        this.ctx.lineTo(trunkX, endY);
+        this.ctx.lineTo(child.x, endY);
+      } else if (child.branchDirection === 'down') {
+        // Org Chart: bezier curves from center bottom
         const startX = node.x + node.width / 2;
         const startY = node.y + node.height;
         const endX = child.x + child.width / 2;

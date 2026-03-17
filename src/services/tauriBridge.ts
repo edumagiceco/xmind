@@ -47,13 +47,21 @@ export async function openFile() {
 
   if (!selected) return; // user cancelled
 
-  const path = typeof selected === 'string' ? selected : selected;
+  const path = typeof selected === 'string' ? selected : (selected as unknown as string);
 
-  const content = await invoke('open_file', { path });
-  const workbook = xmindContentToWorkbook(content);
+  console.log('[MindForge] Opening file:', path);
 
-  useDocumentStore.getState().setWorkbook(workbook);
-  currentFilePath = path as string;
+  try {
+    const content = await invoke('open_file', { path });
+    console.log('[MindForge] File content loaded, type:', Array.isArray(content) ? 'array' : typeof content);
+    const workbook = xmindContentToWorkbook(content);
+    console.log('[MindForge] Workbook created, sheets:', workbook.sheets.length);
+    useDocumentStore.getState().setWorkbook(workbook);
+    currentFilePath = path;
+  } catch (e) {
+    console.error('[MindForge] Open file error:', e);
+    throw e;
+  }
 }
 
 export function newFile() {

@@ -9,8 +9,8 @@ const MIN_NODE_WIDTH = 60;
 const MIN_NODE_HEIGHT = 30;
 
 /**
- * Tree Chart layout: indented tree flowing right, like a file explorer.
- * Root on the left, children stacked vertically below parent, indented to the right.
+ * Tree Chart layout: indented tree flowing down-right, like a file explorer.
+ * Root at top, children stacked vertically below parent, indented to the right.
  */
 export function treeChartLayout(
   rootTopic: Topic,
@@ -21,16 +21,20 @@ export function treeChartLayout(
   // Step 1: Build layout tree with measured sizes
   const root = buildLayoutTree(rootTopic, 0, null, measure, nodes);
 
-  // Step 2: Mark all nodes as right-flowing
-  markDirection(root);
-
-  // Step 3: Position root at top-left
-  root.x = -root.width / 2;
+  // Step 2: Position root at top-left
+  root.x = 0;
   root.y = 0;
+  root.branchDirection = 'right';
 
-  // Step 4: Recursively position all nodes using a Y cursor
+  // Step 3: Recursively position all nodes using a Y cursor
   const cursor = { y: root.y + root.height + VERTICAL_GAP };
-  positionChildren(root, 0, cursor);
+  positionChildren(root, cursor);
+
+  // Step 4: Center the whole tree around origin
+  const bounds = computeBounds(root);
+  const offsetX = (bounds.minX + bounds.maxX) / 2;
+  const offsetY = (bounds.minY + bounds.maxY) / 2;
+  shiftTree(root, -offsetX, -offsetY);
 
   return { root, nodes };
 }
@@ -72,31 +76,48 @@ function buildLayoutTree(
   return node;
 }
 
-function markDirection(node: LayoutNode): void {
-  node.branchDirection = 'right';
-  for (const child of node.children) {
-    markDirection(child);
-  }
-}
-
 /**
  * Position children in an indented list style.
- * Each child is placed at depth * INDENT horizontally, and stacked vertically.
+ * Each child is placed at parent.x + INDENT horizontally, stacked vertically.
+ * Uses branchDirection='down' since children are below their parent.
  */
 function positionChildren(
   parent: LayoutNode,
-  baseX: number,
   cursor: { y: number },
 ): void {
   for (const child of parent.children) {
-    const childDepth = child.depth;
-    child.x = baseX + childDepth * INDENT - child.width / 2;
+    child.x = parent.x + INDENT;
     child.y = cursor.y;
-    child.branchDirection = 'right';
+    child.branchDirection = 'down';
 
     cursor.y += child.height + VERTICAL_GAP;
 
     // Recursively position grandchildren
-    positionChildren(child, baseX, cursor);
+    positionChildren(child, cursor);
+  }
+}
+
+function computeBounds(node: LayoutNode): { minX: number; maxX: number; minY: number; maxY: number } {
+  let minX = node.x;
+  let maxX = node.x + node.width;
+  let minY = node.y;
+  let maxY = node.y + node.height;
+
+  for (const child of node.children) {
+    const cb = computeBounds(child);
+    if (cb.minX < minX) minX = cb.minX;
+    if (cb.maxX > maxX) maxX = cb.maxX;
+    if (cb.minY < minY) minY = cb.minY;
+    if (cb.maxY > maxY) maxY = cb.maxY;
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+function shiftTree(node: LayoutNode, dx: number, dy: number): void {
+  node.x += dx;
+  node.y += dy;
+  for (const child of node.children) {
+    shiftTree(child, dx, dy);
   }
 }

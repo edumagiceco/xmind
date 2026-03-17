@@ -24,8 +24,8 @@ export function logicChartLayout(
   // Step 2: Mark all children as right-flowing
   markDirection(root);
 
-  // Step 3: Layout children as a vertical tree on the right
-  const totalHeight = layoutVerticalTree(root.children);
+  // Step 3: Compute total height for root's children
+  const totalHeight = computeChildrenTotalHeight(root);
 
   // Step 4: Position root at left
   root.x = -root.width / 2;
@@ -85,20 +85,6 @@ function markDirection(node: LayoutNode): void {
   }
 }
 
-function layoutVerticalTree(children: LayoutNode[]): number {
-  if (children.length === 0) return 0;
-
-  let totalHeight = 0;
-  for (const child of children) {
-    const subtreeHeight = getSubtreeHeight(child);
-    (child as LayoutNode & { _subtreeHeight: number })._subtreeHeight = subtreeHeight;
-    totalHeight += subtreeHeight;
-  }
-  totalHeight += (children.length - 1) * VERTICAL_GAP;
-
-  return totalHeight;
-}
-
 function getSubtreeHeight(node: LayoutNode): number {
   if (node.children.length === 0) return node.height;
 
@@ -111,7 +97,7 @@ function getSubtreeHeight(node: LayoutNode): number {
   return Math.max(node.height, childrenTotalHeight);
 }
 
-function getSubtreeChildrenHeight(node: LayoutNode): number {
+function computeChildrenTotalHeight(node: LayoutNode): number {
   if (node.children.length === 0) return 0;
   let total = 0;
   for (const child of node.children) {
@@ -129,16 +115,18 @@ function positionChildren(
   let currentY = startY;
 
   for (const child of children) {
-    const subtreeHeight =
-      (child as LayoutNode & { _subtreeHeight: number })._subtreeHeight || child.height;
+    // Always compute fresh subtree height — never rely on cached values
+    const subtreeHeight = getSubtreeHeight(child);
 
+    // Center this node vertically within its subtree space
     child.x = startX;
     child.y = currentY + subtreeHeight / 2 - child.height / 2;
     child.branchDirection = 'right';
 
+    // Recursively position grandchildren
     if (child.children.length > 0) {
       const childStartX = child.x + child.width + HORIZONTAL_GAP;
-      const childrenTotalHeight = getSubtreeChildrenHeight(child);
+      const childrenTotalHeight = computeChildrenTotalHeight(child);
       const childStartY = currentY + subtreeHeight / 2 - childrenTotalHeight / 2;
 
       positionChildren(child.children, childStartX, childStartY);

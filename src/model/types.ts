@@ -40,6 +40,9 @@ export interface Sheet {
   theme: string; // theme id reference
   structure: StructureType;
   mapSettings?: MapSettings;
+  // Preserve original XMind data for round-trip compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _xmindRaw?: Record<string, any>;
 }
 
 export interface Topic {
@@ -58,6 +61,9 @@ export interface Topic {
   style?: TopicStyle;
   collapsed?: boolean;
   branchDirection?: 'left' | 'right' | 'auto';
+  // Preserve original XMind data for round-trip compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _xmindRaw?: Record<string, any>;
 }
 
 export interface RichTextBlock {

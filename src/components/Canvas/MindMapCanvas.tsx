@@ -82,6 +82,7 @@ export function MindMapCanvas() {
     renderer.setLayout(layout);
     renderer.setTheme(sheet.theme);
     renderer.setMapSettings(sheet.mapSettings);
+    renderer.setStructureType(sheet.structure);
   }, [workbook, activeSheetId]);
 
   // Sync camera to renderer
@@ -314,7 +315,7 @@ export function MindMapCanvas() {
       if (e.metaKey || e.ctrlKey) {
         if (e.key === 's' || e.key === 'S') {
           e.preventDefault();
-          saveFile().catch(console.error);
+          saveFile(e.shiftKey).catch(console.error);
           return;
         }
         if (e.key === 'o' || e.key === 'O') {

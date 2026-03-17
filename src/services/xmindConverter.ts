@@ -9,10 +9,11 @@ interface XMindSheet {
   class?: string;
   title: string;
   rootTopic: XMindTopic;
-  theme?: string;
+  theme?: unknown;
   topicPositioning?: string;
   structureClass?: string;
   relationships?: unknown[];
+  [key: string]: unknown; // preserve all unknown fields
 }
 
 interface XMindTopic {
@@ -34,6 +35,7 @@ interface XMindTopic {
   };
   branch?: string;
   collapsed?: boolean;
+  [key: string]: unknown; // preserve all unknown fields
 }
 
 // ===== Export: Workbook → XMind content.json =====
@@ -43,64 +45,127 @@ export function workbookToXMindContent(workbook: Workbook): XMindSheet[] {
 }
 
 function sheetToXMind(sheet: Sheet): XMindSheet {
+  // Start from preserved raw data if available, otherwise build from scratch
+  const raw = sheet._xmindRaw || {};
+
   const xsheet: XMindSheet = {
+    ...raw, // preserve all original fields (extensions, zones, topicPositioning, etc.)
     id: sheet.id,
     class: 'sheet',
     title: sheet.title,
-    rootTopic: topicToXMind(sheet.rootTopic),
+    rootTopic: topicToXMind(sheet.rootTopic, sheet.structure),
   };
 
-  if (sheet.theme && sheet.theme !== 'default') {
+  // Theme: preserve original complex theme object if stored in raw
+  if (raw.theme) {
+    xsheet.theme = raw.theme;
+  } else if (sheet.theme && sheet.theme !== 'default') {
+    // Only set simple string theme if no complex theme exists
     xsheet.theme = sheet.theme;
   }
 
-  if (sheet.structure !== 'mind-map') {
-    xsheet.structureClass = structureToXMindClass(sheet.structure);
-  }
-
+  // Relationships: preserve if present
   if (sheet.relationships.length > 0) {
     xsheet.relationships = sheet.relationships;
+  } else if (raw.relationships) {
+    xsheet.relationships = raw.relationships as unknown[];
   }
+
+  // Remove sheet-level structureClass — XMind stores it on rootTopic
+  delete xsheet.structureClass;
 
   return xsheet;
 }
 
-function topicToXMind(topic: Topic): XMindTopic {
+function topicToXMind(topic: Topic, structure?: string): XMindTopic {
+  // Start from preserved raw data if available
+  const raw = topic._xmindRaw || {};
+
   const xtopic: XMindTopic = {
+    ...raw, // preserve all original fields
     id: topic.id,
-    class: 'topic',
     title: topic.title,
   };
 
-  if (topic.children.attached.length > 0 || topic.children.detached.length > 0) {
-    xtopic.children = {};
-    if (topic.children.attached.length > 0) {
-      xtopic.children.attached = topic.children.attached.map(topicToXMind);
-    }
-    if (topic.children.detached.length > 0) {
-      xtopic.children.detached = topic.children.detached.map(topicToXMind);
+  // Only set class if it was in the original, or if this is a new topic
+  if (raw.class) {
+    xtopic.class = raw.class as string;
+  } else if (!topic._xmindRaw) {
+    xtopic.class = 'topic';
+  }
+
+  // Structure class: set on root topic (depth detection by checking if topic has _xmindRaw with structureClass)
+  if (structure && structure !== 'mind-map') {
+    // This will be set by the caller for the root topic
+    xtopic.structureClass = structureToXMindClass(structure);
+  } else if (raw.structureClass) {
+    // Preserve original structureClass if structure is mind-map (default)
+    // Only delete if explicitly changed
+    if (structure === 'mind-map') {
+      delete xtopic.structureClass;
     }
   }
 
+  // Children
+  if (topic.children.attached.length > 0 || topic.children.detached.length > 0) {
+    xtopic.children = {};
+    if (topic.children.attached.length > 0) {
+      // Don't pass structure to children — only root topic gets structureClass
+      xtopic.children.attached = topic.children.attached.map((c) => topicToXMind(c));
+    }
+    if (topic.children.detached.length > 0) {
+      xtopic.children.detached = topic.children.detached.map((c) => topicToXMind(c));
+    }
+  } else if (!raw.children) {
+    delete xtopic.children;
+  }
+
+  // Markers
   if (topic.markers.length > 0) {
     xtopic.markers = topic.markers;
+  } else if (!raw.markers) {
+    delete xtopic.markers;
   }
+
+  // Labels
   if (topic.labels.length > 0) {
     xtopic.labels = topic.labels;
+  } else if (!raw.labels) {
+    delete xtopic.labels;
   }
+
+  // Hyperlink
   if (topic.hyperlink) {
     xtopic.href = topic.hyperlink;
+  } else if (!raw.href) {
+    delete xtopic.href;
   }
+
+  // Collapsed
   if (topic.collapsed) {
     xtopic.collapsed = true;
+  } else {
+    delete xtopic.collapsed;
   }
+
+  // Image
   if (topic.image) {
     xtopic.image = topic.image;
+  } else if (!raw.image) {
+    delete xtopic.image;
   }
+
+  // Style
   if (topic.style) {
     xtopic.style = {
-      properties: topicStyleToProperties(topic.style),
+      ...(raw.style as Record<string, unknown> || {}),
+      properties: {
+        ...((raw.style as Record<string, unknown>)?.properties as Record<string, string> || {}),
+        ...topicStyleToProperties(topic.style),
+      },
     };
+  } else if (!raw.style) {
+    delete xtopic.style;
   }
 
   return xtopic;
@@ -134,12 +199,21 @@ function xmindToSheet(data: unknown): Sheet {
   const rootTopic = xmindToTopic(s.rootTopic);
   const sheet = createSheet(s.id || generateId(), s.title || 'Sheet 1', rootTopic);
 
-  if (s.structureClass) {
-    sheet.structure = xmindClassToStructure(s.structureClass);
+  // Check structureClass on sheet level first, then rootTopic level (XMind stores it on rootTopic)
+  const structureClass = s.structureClass || s.rootTopic?.structureClass;
+  if (structureClass) {
+    sheet.structure = xmindClassToStructure(structureClass);
   }
-  if (s.theme) {
+
+  // Theme: store as internal ID only if it's a simple string
+  if (s.theme && typeof s.theme === 'string') {
     sheet.theme = s.theme;
   }
+  // Complex theme objects are preserved in _xmindRaw
+
+  // Preserve the entire original sheet data for round-trip
+  const { rootTopic: _rt, ...rawCopy } = s;
+  sheet._xmindRaw = rawCopy;
 
   return sheet;
 }
@@ -175,6 +249,11 @@ function xmindToTopic(data: XMindTopic): Topic {
     topic.style = propertiesToTopicStyle(data.style.properties);
   }
 
+  // Preserve original topic data for round-trip (without children to avoid duplication)
+  const rawCopy = { ...data };
+  delete rawCopy.children; // Don't duplicate children in raw
+  topic._xmindRaw = rawCopy;
+
   return topic;
 }
 
@@ -198,20 +277,20 @@ function structureToXMindClass(structure: string): string {
 
 function xmindClassToStructure(cls: string): Sheet['structure'] {
   for (const [key, value] of Object.entries(STRUCTURE_CLASS_MAP)) {
-    if (cls.includes(key) || value === cls) {
+    if (value === cls) {
       return key as Sheet['structure'];
     }
   }
   // Fallback matching by partial class name
-  if (cls.includes('map')) return 'mind-map';
   if (cls.includes('logic')) return 'logic-chart';
-  if (cls.includes('brace')) return 'brace-map';
   if (cls.includes('org-chart')) return 'org-chart';
+  if (cls.includes('brace')) return 'brace-map';
   if (cls.includes('tree') && cls.includes('table')) return 'tree-table';
   if (cls.includes('tree')) return 'tree-chart';
   if (cls.includes('timeline')) return 'timeline';
   if (cls.includes('fishbone')) return 'fishbone';
   if (cls.includes('matrix')) return 'matrix';
+  if (cls.includes('map')) return 'mind-map';
   return 'mind-map';
 }
 
@@ -253,6 +332,8 @@ function propertiesToTopicStyle(props: Record<string, string>): Topic['style'] {
 export function createXMindMetadata() {
   return {
     creator: { name: 'MindForge', version: '1.0.0' },
+    dataStructureVersion: '3',
+    layoutEngineVersion: '5',
     activeSheetId: '',
   };
 }

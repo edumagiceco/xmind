@@ -39,6 +39,7 @@ export function MainToolbar() {
       useUIStore.getState().resetView();
     } catch (e) {
       console.error('Failed to open file:', e);
+      alert(`파일 열기 실패: ${e}`);
     }
   };
 
@@ -47,6 +48,7 @@ export function MainToolbar() {
       await saveFile();
     } catch (e) {
       console.error('Failed to save file:', e);
+      alert(`파일 저장 실패: ${e}`);
     }
   };
 
