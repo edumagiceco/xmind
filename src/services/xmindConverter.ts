@@ -1,4 +1,4 @@
-import type { Workbook, Sheet, Topic } from '../model/types';
+import type { Workbook, Sheet, Topic, BorderStyle, Relationship, Boundary, Summary, MapSettings } from '../model/types';
 import { createWorkbook, createSheet, createTopic } from '../model/types';
 import { generateId } from '../utils/id';
 
@@ -13,6 +13,9 @@ interface XMindSheet {
   topicPositioning?: string;
   structureClass?: string;
   relationships?: unknown[];
+  boundaries?: unknown[];
+  summaries?: unknown[];
+  mapSettings?: MapSettings;
 }
 
 interface XMindTopic {
@@ -62,6 +65,21 @@ function sheetToXMind(sheet: Sheet): XMindSheet {
     xsheet.relationships = sheet.relationships;
   }
 
+  if (sheet.boundaries.length > 0) {
+    xsheet.boundaries = sheet.boundaries;
+  }
+
+  if (sheet.summaries.length > 0) {
+    xsheet.summaries = sheet.summaries.map((s) => ({
+      ...s,
+      summaryTopic: topicToXMind(s.summaryTopic),
+    }));
+  }
+
+  if (sheet.mapSettings) {
+    xsheet.mapSettings = sheet.mapSettings;
+  }
+
   return xsheet;
 }
 
@@ -96,6 +114,12 @@ function topicToXMind(topic: Topic): XMindTopic {
   }
   if (topic.image) {
     xtopic.image = topic.image;
+  }
+  if (topic.notes) {
+    xtopic.notes = topic.notes;
+  }
+  if (topic.branchDirection && topic.branchDirection !== 'auto') {
+    xtopic.branch = topic.branchDirection;
   }
   if (topic.style) {
     xtopic.style = {
@@ -140,6 +164,23 @@ function xmindToSheet(data: unknown): Sheet {
   if (s.theme) {
     sheet.theme = s.theme;
   }
+  if (s.relationships && Array.isArray(s.relationships)) {
+    sheet.relationships = s.relationships as Relationship[];
+  }
+  if (s.boundaries && Array.isArray(s.boundaries)) {
+    sheet.boundaries = s.boundaries as Boundary[];
+  }
+  if (s.summaries && Array.isArray(s.summaries)) {
+    sheet.summaries = (s.summaries as Array<{ id: string; title?: string; topicIds: string[]; summaryTopic: XMindTopic }>).map((sm) => ({
+      id: sm.id,
+      title: sm.title,
+      topicIds: sm.topicIds,
+      summaryTopic: xmindToTopic(sm.summaryTopic),
+    })) as Summary[];
+  }
+  if (s.mapSettings) {
+    sheet.mapSettings = s.mapSettings;
+  }
 
   return sheet;
 }
@@ -170,6 +211,12 @@ function xmindToTopic(data: XMindTopic): Topic {
   }
   if (data.image) {
     topic.image = data.image;
+  }
+  if (data.notes) {
+    topic.notes = data.notes as Topic['notes'];
+  }
+  if (data.branch) {
+    topic.branchDirection = data.branch as Topic['branchDirection'];
   }
   if (data.style?.properties) {
     topic.style = propertiesToTopicStyle(data.style.properties);
@@ -222,11 +269,14 @@ function topicStyleToProperties(style: NonNullable<Topic['style']>): Record<stri
   if (style.fillColor) props['svg:fill'] = style.fillColor;
   if (style.borderColor) props['border-line-color'] = style.borderColor;
   if (style.borderWidth) props['border-line-width'] = `${style.borderWidth}pt`;
+  if (style.borderStyle) props['border-line-style'] = style.borderStyle;
   if (style.fontFamily) props['fo:font-family'] = style.fontFamily;
   if (style.fontSize) props['fo:font-size'] = `${style.fontSize}pt`;
   if (style.fontColor) props['fo:color'] = style.fontColor;
   if (style.fontWeight) props['fo:font-weight'] = style.fontWeight === 'bold' ? 'bold' : 'normal';
   if (style.lineColor) props['line-color'] = style.lineColor;
+  if (style.lineWidth) props['line-width'] = `${style.lineWidth}pt`;
+  if (style.lineStyle) props['line-pattern'] = style.lineStyle;
   if (style.shape) props['shape-class'] = `org.xmind.topicShape.${style.shape}`;
   return props;
 }
@@ -236,11 +286,14 @@ function propertiesToTopicStyle(props: Record<string, string>): Topic['style'] {
   if (props['svg:fill']) style.fillColor = props['svg:fill'];
   if (props['border-line-color']) style.borderColor = props['border-line-color'];
   if (props['border-line-width']) style.borderWidth = parseFloat(props['border-line-width']);
+  if (props['border-line-style']) style.borderStyle = props['border-line-style'] as BorderStyle;
   if (props['fo:font-family']) style.fontFamily = props['fo:font-family'];
   if (props['fo:font-size']) style.fontSize = parseFloat(props['fo:font-size']);
   if (props['fo:color']) style.fontColor = props['fo:color'];
   if (props['fo:font-weight']) style.fontWeight = props['fo:font-weight'] === 'bold' ? 'bold' : 'normal';
   if (props['line-color']) style.lineColor = props['line-color'];
+  if (props['line-width']) style.lineWidth = parseFloat(props['line-width']);
+  if (props['line-pattern']) style.lineStyle = props['line-pattern'] as NonNullable<Topic['style']>['lineStyle'];
   if (props['shape-class']) {
     const shapeStr = props['shape-class'].replace('org.xmind.topicShape.', '');
     style.shape = shapeStr as NonNullable<Topic['style']>['shape'];
