@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { MindMapCanvas } from './components/Canvas/MindMapCanvas';
 import { MainToolbar } from './components/Toolbar/MainToolbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { useUIStore } from './store/uiStore';
 import { useDocumentStore } from './store/documentStore';
 import { openFile, saveFile, newFile } from './services/tauriBridge';
+
+const isTauri = !!(window as unknown as { __TAURI__: unknown }).__TAURI__;
 
 async function handleQuit() {
   const isDirty = useDocumentStore.getState().isDirty;
@@ -22,7 +23,10 @@ async function handleQuit() {
       }
     }
   }
-  getCurrentWindow().destroy();
+  if (isTauri) {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    getCurrentWindow().destroy();
+  }
 }
 
 function App() {
@@ -62,18 +66,23 @@ function App() {
       }
     });
 
-    // Intercept window close button (X button)
-    const unlistenClose = getCurrentWindow().onCloseRequested(async (event) => {
-      const isDirty = useDocumentStore.getState().isDirty;
-      if (isDirty) {
-        event.preventDefault();
-        await handleQuit();
-      }
-    });
+    // Intercept window close button (X button) - Tauri only
+    let unlistenClose: Promise<() => void> | null = null;
+    if (isTauri) {
+      import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+        unlistenClose = getCurrentWindow().onCloseRequested(async (event) => {
+          const isDirty = useDocumentStore.getState().isDirty;
+          if (isDirty) {
+            event.preventDefault();
+            await handleQuit();
+          }
+        });
+      });
+    }
 
     return () => {
       unlisten.then((fn) => fn());
-      unlistenClose.then((fn) => fn());
+      unlistenClose?.then((fn) => fn());
     };
   }, []);
 
