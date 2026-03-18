@@ -7,6 +7,13 @@ import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
 import { saveFile, openFile, newFile } from '../../services/tauriBridge';
 
+function useFileName() {
+  const filePath = useDocumentStore((s) => s.currentFilePath);
+  const isDirty = useDocumentStore((s) => s.isDirty);
+  const name = filePath ? filePath.split('/').pop()!.replace(/\.xmind$/i, '') : 'Untitled';
+  return isDirty ? `${name} *` : name;
+}
+
 export function MainToolbar() {
   const addChildTopic = useDocumentStore((s) => s.addChildTopic);
   const selectedTopicIds = useUIStore((s) => s.selectedTopicIds);
@@ -14,6 +21,7 @@ export function MainToolbar() {
   const resetView = useUIStore((s) => s.resetView);
   const camera = useUIStore((s) => s.camera);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const fileName = useFileName();
 
   const handleUndo = () => useDocumentStore.temporal.getState().undo();
   const handleRedo = () => useDocumentStore.temporal.getState().redo();
@@ -87,7 +95,9 @@ export function MainToolbar() {
         disabled={selectedTopicIds.length === 0}
       />
 
-      <div className="flex-1" />
+      <div className="flex-1 flex items-center justify-center">
+        <span className="text-sm text-gray-500 truncate max-w-[300px] select-none">{fileName}</span>
+      </div>
 
       <ToolbarButton icon={<PanelRight size={18} />} title="Toggle Sidebar" onClick={toggleSidebar} />
 

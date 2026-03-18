@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { ask } from '@tauri-apps/plugin-dialog';
 import { MindMapCanvas } from './components/Canvas/MindMapCanvas';
 import { MainToolbar } from './components/Toolbar/MainToolbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
@@ -9,24 +10,42 @@ import { openFile, saveFile, newFile } from './services/tauriBridge';
 
 const isTauri = !!(window as unknown as { __TAURI__: unknown }).__TAURI__;
 
-async function handleQuit() {
-  const isDirty = useDocumentStore.getState().isDirty;
-  if (isDirty) {
-    const answer = confirm('저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?');
-    if (answer) {
-      try {
-        await saveFile(false);
-      } catch (e) {
-        console.error(e);
-        const forceQuit = confirm('저장에 실패했습니다. 그래도 종료하시겠습니까?');
-        if (!forceQuit) return;
-      }
-    }
-  }
+async function destroyWindow() {
   if (isTauri) {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     getCurrentWindow().destroy();
   }
+}
+
+async function handleQuit() {
+  try {
+    const isDirty = useDocumentStore.getState().isDirty;
+    if (isDirty) {
+      const shouldSave = await ask('저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?', {
+        title: 'MindForge',
+        kind: 'warning',
+        okLabel: '저장',
+        cancelLabel: '저장 안 함',
+      });
+      if (shouldSave) {
+        try {
+          await saveFile(false);
+        } catch (e) {
+          console.error('Save failed:', e);
+          const forceQuit = await ask('저장에 실패했습니다. 그래도 종료하시겠습니까?', {
+            title: 'MindForge',
+            kind: 'error',
+            okLabel: '종료',
+            cancelLabel: '취소',
+          });
+          if (!forceQuit) return;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Quit dialog error:', e);
+  }
+  await destroyWindow();
 }
 
 function App() {

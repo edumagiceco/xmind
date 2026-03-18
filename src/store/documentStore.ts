@@ -44,6 +44,7 @@ export interface DocumentState {
   workbook: Workbook;
   activeSheetId: string;
   isDirty: boolean;
+  currentFilePath: string | null;
 
   // Getters
   getActiveSheet: () => Sheet;
@@ -53,6 +54,7 @@ export interface DocumentState {
   setWorkbook: (workbook: Workbook) => void;
   newWorkbook: () => void;
   markSaved: () => void;
+  setCurrentFilePath: (path: string | null) => void;
 
   // Topic operations
   updateTopicTitle: (topicId: string, title: string) => void;
@@ -94,6 +96,7 @@ export const useDocumentStore = create<DocumentState>()(
       workbook: initialWorkbook,
       activeSheetId: initialWorkbook.sheets[0].id,
       isDirty: false,
+      currentFilePath: null,
 
       getActiveSheet: () => {
         const state = get();
@@ -113,6 +116,7 @@ export const useDocumentStore = create<DocumentState>()(
       },
 
       markSaved: () => set({ isDirty: false }),
+      setCurrentFilePath: (path: string | null) => set({ currentFilePath: path }),
 
       updateTopicTitle: (topicId: string, title: string) =>
         set((state) => {

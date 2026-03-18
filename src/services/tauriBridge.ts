@@ -7,21 +7,20 @@ import {
   createXMindMetadata,
 } from './xmindConverter';
 
-let currentFilePath: string | null = null;
-
 export function getCurrentFilePath() {
-  return currentFilePath;
+  return useDocumentStore.getState().currentFilePath;
 }
 
 export async function saveFile(saveAs = false) {
-  const workbook = useDocumentStore.getState().workbook;
+  const store = useDocumentStore.getState();
+  const workbook = store.workbook;
 
-  let path = currentFilePath;
+  let path = store.currentFilePath;
 
   if (!path || saveAs) {
     const selected = await save({
       filters: [{ name: 'XMind Files', extensions: ['xmind'] }],
-      defaultPath: currentFilePath || 'mindmap.xmind',
+      defaultPath: store.currentFilePath || 'mindmap.xmind',
     });
     if (!selected) return; // user cancelled
     path = selected;
@@ -36,7 +35,7 @@ export async function saveFile(saveAs = false) {
     metadata,
   });
 
-  currentFilePath = path;
+  useDocumentStore.getState().setCurrentFilePath(path);
   useDocumentStore.getState().markSaved();
 }
 
@@ -58,7 +57,7 @@ export async function openFile() {
     const workbook = xmindContentToWorkbook(content);
     console.log('[MindForge] Workbook created, sheets:', workbook.sheets.length);
     useDocumentStore.getState().setWorkbook(workbook);
-    currentFilePath = path;
+    useDocumentStore.getState().setCurrentFilePath(path);
   } catch (e) {
     console.error('[MindForge] Open file error:', e);
     throw e;
@@ -67,5 +66,5 @@ export async function openFile() {
 
 export function newFile() {
   useDocumentStore.getState().newWorkbook();
-  currentFilePath = null;
+  useDocumentStore.getState().setCurrentFilePath(null);
 }
