@@ -218,6 +218,14 @@ export const useDocumentStore = create<DocumentState>()(
           const workbook = cloneDeep(state.workbook);
           const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
 
+          // Prevent moving to self
+          if (topicId === newParentId) return state;
+
+          // Prevent circular: check if newParent is a descendant of topic
+          const topicResult = findTopic(sheet.rootTopic, topicId);
+          if (!topicResult) return state;
+          if (findTopic(topicResult[0], newParentId)) return state;
+
           // Find and remove from current parent
           const result = findTopic(sheet.rootTopic, topicId);
           if (!result || !result[1]) return state;

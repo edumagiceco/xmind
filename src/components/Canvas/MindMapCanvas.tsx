@@ -12,6 +12,7 @@ export function MindMapCanvas() {
   const rendererRef = useRef<CanvasRenderer | null>(null);
   const layoutRef = useRef<LayoutResult | null>(null);
   const dropTargetRef = useRef<{ targetId: string; position: 'child' | 'before' | 'after' } | null>(null);
+  const isDraggingRef = useRef(false);
 
   const [editInput, setEditInput] = useState<{
     topicId: string;
@@ -162,6 +163,9 @@ export function MindMapCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
+    // Suppress hover during drag
+    if (isDraggingRef.current) return;
+
     const world = getWorldCoords(e);
     if (!world) return;
 
@@ -236,7 +240,14 @@ export function MindMapCanvas() {
             return;
           }
           isDragging = true;
-          renderer.setDragState(hitId);
+          isDraggingRef.current = true;
+          useUIStore.getState().setHoveredTopic(null);
+          const startWorld = renderer.camera.screenToWorld(
+            moveEvent.clientX - canvasRef.current!.getBoundingClientRect().left,
+            moveEvent.clientY - canvasRef.current!.getBoundingClientRect().top,
+            renderer.canvasWidth, renderer.canvasHeight,
+          );
+          renderer.setDragState(hitId, startWorld.x, startWorld.y);
           if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
         }
 
@@ -249,13 +260,17 @@ export function MindMapCanvas() {
             renderer.canvasWidth, renderer.canvasHeight,
           );
 
+          renderer.updateDragPosition(worldCoords.x, worldCoords.y);
+
           const dropTarget = renderer.findDropTarget(worldCoords.x, worldCoords.y, hitId);
           if (dropTarget) {
             renderer.setDropTarget(dropTarget.targetId, dropTarget.position);
             dropTargetRef.current = dropTarget;
+            if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
           } else {
             renderer.setDropTarget(null, null);
             dropTargetRef.current = null;
+            if (canvasRef.current) canvasRef.current.style.cursor = 'not-allowed';
           }
         }
       };
@@ -296,6 +311,7 @@ export function MindMapCanvas() {
 
           renderer.clearDragState();
           dropTargetRef.current = null;
+          isDraggingRef.current = false;
           if (canvasRef.current) canvasRef.current.style.cursor = 'default';
         }
       };

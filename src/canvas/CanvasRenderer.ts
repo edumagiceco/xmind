@@ -21,6 +21,8 @@ export class CanvasRenderer {
 
   // Drag state
   private dragId: string | null = null;
+  private dragWorldX = 0;
+  private dragWorldY = 0;
   private dropTargetId: string | null = null;
   private dropPosition: 'child' | 'before' | 'after' | null = null;
 
@@ -76,8 +78,16 @@ export class CanvasRenderer {
     this.needsRender = true;
   }
 
-  setDragState(dragId: string | null) {
+  setDragState(dragId: string | null, worldX = 0, worldY = 0) {
     this.dragId = dragId;
+    this.dragWorldX = worldX;
+    this.dragWorldY = worldY;
+    this.needsRender = true;
+  }
+
+  updateDragPosition(worldX: number, worldY: number) {
+    this.dragWorldX = worldX;
+    this.dragWorldY = worldY;
     this.needsRender = true;
   }
 
@@ -101,37 +111,78 @@ export class CanvasRenderer {
     position: 'child' | 'before' | 'after';
   } | null {
     if (!this.layout) return null;
-    return this.findDropInNode(this.layout.root, worldX, worldY, draggedId);
+    // Collect all IDs in the dragged subtree to prevent circular drops
+    const draggedNode = this.layout.nodes.get(draggedId);
+    const excludeIds = new Set<string>();
+    if (draggedNode) {
+      this.collectSubtreeIds(draggedNode, excludeIds);
+    }
+    return this.findDropInNode(this.layout.root, worldX, worldY, excludeIds);
+  }
+
+  /** Collect all node IDs in a subtree */
+  private collectSubtreeIds(node: LayoutNode, ids: Set<string>) {
+    ids.add(node.id);
+    for (const child of node.children) {
+      this.collectSubtreeIds(child, ids);
+    }
   }
 
   private findDropInNode(
     node: LayoutNode,
     wx: number,
     wy: number,
-    draggedId: string,
+    excludeIds: Set<string>,
   ): { targetId: string; position: 'child' | 'before' | 'after' } | null {
+    // Skip the entire dragged subtree
+    if (excludeIds.has(node.id)) return null;
+
     // Check children first (front-to-back)
     for (let i = node.children.length - 1; i >= 0; i--) {
-      const result = this.findDropInNode(node.children[i], wx, wy, draggedId);
+      const result = this.findDropInNode(node.children[i], wx, wy, excludeIds);
       if (result) return result;
     }
-
-    // Skip the dragged node itself
-    if (node.id === draggedId) return null;
 
     const { x, y, width, height } = node;
     const inX = wx >= x - 10 && wx <= x + width + 10;
     const inY = wy >= y - 10 && wy <= y + height + 10;
 
     if (inX && inY) {
-      // Determine drop position based on where in the node the cursor is
-      const relY = (wy - y) / height;
+      // Determine drop position based on structure type and branch direction
+      const isVertical = this.structureType === 'org-chart' || this.structureType === 'tree-chart';
 
-      if (relY < 0.25) {
-        return { targetId: node.id, position: 'before' };
-      } else if (relY > 0.75) {
-        return { targetId: node.id, position: 'after' };
+      if (isVertical) {
+        // Vertical layouts: use Y axis for before/after (top/bottom edges)
+        const relY = (wy - y) / height;
+        if (relY < 0.25) {
+          return { targetId: node.id, position: 'before' };
+        } else if (relY > 0.75) {
+          return { targetId: node.id, position: 'after' };
+        } else {
+          return { targetId: node.id, position: 'child' };
+        }
       } else {
+        // Horizontal layouts (mind-map, logic-chart): use X axis
+        // For left-branch nodes, directions are flipped
+        const isLeftBranch = node.branchDirection === 'left';
+        const relX = (wx - x) / width;
+
+        if (isLeftBranch) {
+          // Left branch: right edge = before (closer to parent), left = after (away from parent)
+          if (relX > 0.75) {
+            return { targetId: node.id, position: 'before' };
+          } else if (relX < 0.25) {
+            return { targetId: node.id, position: 'after' };
+          }
+        } else {
+          // Right branch / default: use Y axis for sibling order since siblings stack vertically
+          const relY = (wy - y) / height;
+          if (relY < 0.25) {
+            return { targetId: node.id, position: 'before' };
+          } else if (relY > 0.75) {
+            return { targetId: node.id, position: 'after' };
+          }
+        }
         return { targetId: node.id, position: 'child' };
       }
     }
@@ -189,8 +240,11 @@ export class CanvasRenderer {
     this.renderNodes(this.layout.root);
 
     // Draw drag feedback
-    if (this.dragId && this.dropTargetId && this.dropPosition) {
-      this.renderDropIndicator();
+    if (this.dragId) {
+      if (this.dropTargetId && this.dropPosition) {
+        this.renderDropIndicator();
+      }
+      this.renderDragGhost();
     }
   }
 
@@ -563,22 +617,91 @@ export class CanvasRenderer {
     ctx.save();
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 3;
-    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.fillStyle = '#2563eb';
 
-    const lineY = this.dropPosition === 'before' ? node.y - 2 : node.y + node.height + 2;
+    // Siblings always stack vertically in all current layout algorithms
+    let lineY: number;
+    if (this.dropPosition === 'before') {
+      const prev = this.findPreviousSibling(node);
+      lineY = prev ? (prev.y + prev.height + node.y) / 2 : node.y - 8;
+    } else {
+      const next = this.findNextSibling(node);
+      lineY = next ? (node.y + node.height + next.y) / 2 : node.y + node.height + 8;
+    }
+
+    // Horizontal line
     ctx.beginPath();
     ctx.moveTo(node.x, lineY);
     ctx.lineTo(node.x + node.width, lineY);
     ctx.stroke();
 
-    // Draw small circles at endpoints
-    ctx.fillStyle = '#2563eb';
+    // Circle endpoints
     ctx.beginPath();
-    ctx.arc(node.x, lineY, 3, 0, Math.PI * 2);
+    ctx.arc(node.x, lineY, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(node.x + node.width, lineY, 3, 0, Math.PI * 2);
+    ctx.arc(node.x + node.width, lineY, 4, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.restore();
+  }
+
+  /** Find previous sibling layout node */
+  private findPreviousSibling(node: LayoutNode): LayoutNode | null {
+    if (!node.parent) return null;
+    const siblings = node.parent.children;
+    const idx = siblings.findIndex(s => s.id === node.id);
+    return idx > 0 ? siblings[idx - 1] : null;
+  }
+
+  /** Find next sibling layout node */
+  private findNextSibling(node: LayoutNode): LayoutNode | null {
+    if (!node.parent) return null;
+    const siblings = node.parent.children;
+    const idx = siblings.findIndex(s => s.id === node.id);
+    return idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null;
+  }
+
+  /** Render a ghost of the dragged node at the cursor position */
+  private renderDragGhost() {
+    if (!this.layout || !this.dragId) return;
+    const node = this.layout.nodes.get(this.dragId);
+    if (!node) return;
+
+    const { ctx } = this;
+    const theme = getTheme(this.themeId);
+    const style = getTopicStyle(node, theme, this.mapSettings);
+
+    // Draw at drag world position, offset so cursor is at center
+    const gx = this.dragWorldX - node.width / 2;
+    const gy = this.dragWorldY - node.height / 2;
+
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+
+    // Shape
+    const shape = style.shape ?? 'rounded-rect';
+    if (shape !== 'underline') {
+      ctx.beginPath();
+      this.buildShapePath(gx, gy, node.width, node.height, shape);
+      ctx.fillStyle = style.fillColor ?? '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    }
+
+    // Text
+    const fontSize = style.fontSize ?? 14;
+    const fontWeight = style.fontWeight ?? 'normal';
+    const fontFamily = style.fontFamily ?? '-apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.fillStyle = style.fontColor ?? '#1a1a1a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.topic.title, gx + node.width / 2, gy + node.height / 2, node.width - 16);
 
     ctx.restore();
   }
