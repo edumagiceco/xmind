@@ -11,6 +11,7 @@ export function MindMapCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
   const layoutRef = useRef<LayoutResult | null>(null);
+  const dropTargetRef = useRef<{ targetId: string; position: 'child' | 'before' | 'after' } | null>(null);
 
   const [editInput, setEditInput] = useState<{
     topicId: string;
@@ -215,6 +216,92 @@ export function MindMapCanvas() {
 
     if (hitId) {
       useUIStore.getState().selectTopic(hitId, e.metaKey || e.ctrlKey);
+
+      // Prepare for potential drag
+      const startScreenX = e.clientX;
+      const startScreenY = e.clientY;
+      const rootId = useDocumentStore.getState().getRootTopic().id;
+      let isDragging = false;
+
+      const handleDragMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.clientX - startScreenX;
+        const dy = moveEvent.clientY - startScreenY;
+
+        // Start drag after 5px threshold
+        if (!isDragging && Math.sqrt(dx * dx + dy * dy) > 5) {
+          // Don't allow dragging root topic
+          if (hitId === rootId) {
+            window.removeEventListener('mousemove', handleDragMove);
+            window.removeEventListener('mouseup', handleDragUp);
+            return;
+          }
+          isDragging = true;
+          renderer.setDragState(hitId);
+          if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+        }
+
+        if (isDragging) {
+          const rect = canvasRef.current!.getBoundingClientRect();
+          const screenX = moveEvent.clientX - rect.left;
+          const screenY = moveEvent.clientY - rect.top;
+          const worldCoords = renderer.camera.screenToWorld(
+            screenX, screenY,
+            renderer.canvasWidth, renderer.canvasHeight,
+          );
+
+          const dropTarget = renderer.findDropTarget(worldCoords.x, worldCoords.y, hitId);
+          if (dropTarget) {
+            renderer.setDropTarget(dropTarget.targetId, dropTarget.position);
+            dropTargetRef.current = dropTarget;
+          } else {
+            renderer.setDropTarget(null, null);
+            dropTargetRef.current = null;
+          }
+        }
+      };
+
+      const handleDragUp = () => {
+        window.removeEventListener('mousemove', handleDragMove);
+        window.removeEventListener('mouseup', handleDragUp);
+
+        if (isDragging) {
+          // Execute the drop
+          const doc = useDocumentStore.getState();
+          const sheet = doc.getActiveSheet();
+
+          if (dropTargetRef.current) {
+            const { targetId, position } = dropTargetRef.current;
+
+            // Find target's parent for before/after positions
+            const findParent = (root: Topic, tid: string): Topic | null => {
+              for (const child of root.children.attached) {
+                if (child.id === tid) return root;
+                const found = findParent(child, tid);
+                if (found) return found;
+              }
+              return null;
+            };
+
+            if (position === 'child') {
+              doc.moveTopic(hitId, targetId);
+            } else {
+              const parent = findParent(sheet.rootTopic, targetId);
+              if (parent) {
+                const targetIdx = parent.children.attached.findIndex(c => c.id === targetId);
+                const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+                doc.moveTopic(hitId, parent.id, insertIdx);
+              }
+            }
+          }
+
+          renderer.clearDragState();
+          dropTargetRef.current = null;
+          if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+        }
+      };
+
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragUp);
     } else {
       useUIStore.getState().clearSelection();
 

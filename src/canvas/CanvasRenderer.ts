@@ -19,6 +19,11 @@ export class CanvasRenderer {
   private structureType: StructureType = 'mind-map';
   private needsRender = true;
 
+  // Drag state
+  private dragId: string | null = null;
+  private dropTargetId: string | null = null;
+  private dropPosition: 'child' | 'before' | 'after' | null = null;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -71,6 +76,69 @@ export class CanvasRenderer {
     this.needsRender = true;
   }
 
+  setDragState(dragId: string | null) {
+    this.dragId = dragId;
+    this.needsRender = true;
+  }
+
+  setDropTarget(targetId: string | null, position: 'child' | 'before' | 'after' | null) {
+    if (this.dropTargetId === targetId && this.dropPosition === position) return;
+    this.dropTargetId = targetId;
+    this.dropPosition = position;
+    this.needsRender = true;
+  }
+
+  clearDragState() {
+    this.dragId = null;
+    this.dropTargetId = null;
+    this.dropPosition = null;
+    this.needsRender = true;
+  }
+
+  /** Find the best drop target at given world coordinates */
+  findDropTarget(worldX: number, worldY: number, draggedId: string): {
+    targetId: string;
+    position: 'child' | 'before' | 'after';
+  } | null {
+    if (!this.layout) return null;
+    return this.findDropInNode(this.layout.root, worldX, worldY, draggedId);
+  }
+
+  private findDropInNode(
+    node: LayoutNode,
+    wx: number,
+    wy: number,
+    draggedId: string,
+  ): { targetId: string; position: 'child' | 'before' | 'after' } | null {
+    // Check children first (front-to-back)
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      const result = this.findDropInNode(node.children[i], wx, wy, draggedId);
+      if (result) return result;
+    }
+
+    // Skip the dragged node itself
+    if (node.id === draggedId) return null;
+
+    const { x, y, width, height } = node;
+    const inX = wx >= x - 10 && wx <= x + width + 10;
+    const inY = wy >= y - 10 && wy <= y + height + 10;
+
+    if (inX && inY) {
+      // Determine drop position based on where in the node the cursor is
+      const relY = (wy - y) / height;
+
+      if (relY < 0.25) {
+        return { targetId: node.id, position: 'before' };
+      } else if (relY > 0.75) {
+        return { targetId: node.id, position: 'after' };
+      } else {
+        return { targetId: node.id, position: 'child' };
+      }
+    }
+
+    return null;
+  }
+
   requestRender() {
     this.needsRender = true;
   }
@@ -119,6 +187,11 @@ export class CanvasRenderer {
 
     // Draw all nodes
     this.renderNodes(this.layout.root);
+
+    // Draw drag feedback
+    if (this.dragId && this.dropTargetId && this.dropPosition) {
+      this.renderDropIndicator();
+    }
   }
 
   private renderConnections(node: LayoutNode, _defaultColor: string) {
@@ -197,6 +270,27 @@ export class CanvasRenderer {
     const isSelected = this.selectedIds.has(node.id);
     const isEditing = this.editingId === node.id;
     const isHovered = this.hoveredId === node.id;
+    const isBeingDragged = this.dragId === node.id;
+    const isDropTarget = this.dropTargetId === node.id && this.dropPosition === 'child';
+
+    // Dim the dragged node
+    if (isBeingDragged) {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.3;
+    }
+
+    // Highlight drop target
+    if (isDropTarget) {
+      this.ctx.save();
+      this.ctx.strokeStyle = '#2563eb';
+      this.ctx.lineWidth = 3;
+      this.ctx.setLineDash([6, 4]);
+      this.ctx.beginPath();
+      this.roundedRect(node.x - 4, node.y - 4, node.width + 8, node.height + 8, 10);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+      this.ctx.restore();
+    }
 
     this.renderNodeShape(node, style, isSelected, isHovered);
 
@@ -223,6 +317,11 @@ export class CanvasRenderer {
     // Render add-child "+" button on hover (MindNode-style node well)
     if (isHovered && !isEditing) {
       this.renderAddButton(node, style);
+    }
+
+    // Restore alpha if this was the dragged node
+    if (isBeingDragged) {
+      this.ctx.restore();
     }
 
     // Recurse to children
@@ -451,6 +550,37 @@ export class CanvasRenderer {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
+  }
+
+  /** Render drop indicator line for before/after positions */
+  private renderDropIndicator() {
+    if (!this.layout || !this.dropTargetId || !this.dropPosition || this.dropPosition === 'child') return;
+
+    const node = this.layout.nodes.get(this.dropTargetId);
+    if (!node) return;
+
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([]);
+
+    const lineY = this.dropPosition === 'before' ? node.y - 2 : node.y + node.height + 2;
+    ctx.beginPath();
+    ctx.moveTo(node.x, lineY);
+    ctx.lineTo(node.x + node.width, lineY);
+    ctx.stroke();
+
+    // Draw small circles at endpoints
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.arc(node.x, lineY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(node.x + node.width, lineY, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   }
 
   /** Render marker emojis to the left of the node text */
