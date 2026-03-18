@@ -1,10 +1,11 @@
-import type { LayoutNode, StructureType } from '../model/types';
+import type { LayoutNode, StructureType, Topic } from '../model/types';
 import type { LayoutResult } from '../layout/types';
 import { getTheme, getTopicStyle } from '../themes/ThemeEngine';
 import type { MapSettings } from '../model/types';
+import { jsPDF } from 'jspdf';
 
 interface ExportOptions {
-  format: 'png' | 'svg';
+  format: 'png' | 'svg' | 'pdf' | 'markdown';
   padding?: number;
   scale?: number;
   backgroundColor?: string;
@@ -114,6 +115,86 @@ export function exportAsSvg(
   parts.push('</svg>');
 
   return parts.join('\n');
+}
+
+// ===== PDF Export =====
+
+export async function exportAsPdf(
+  layout: LayoutResult,
+  themeId: string,
+  structureType: StructureType,
+  mapSettings?: MapSettings,
+  options?: Partial<ExportOptions>,
+): Promise<Blob> {
+  const padding = options?.padding ?? 40;
+  const theme = getTheme(themeId);
+  const bgColor = options?.backgroundColor ?? mapSettings?.backgroundColor ?? theme.canvas.backgroundColor ?? '#f5f5f5';
+
+  const box = computeBoundingBox(layout.root);
+  const mapWidth = box.maxX - box.minX + padding * 2;
+  const mapHeight = box.maxY - box.minY + padding * 2;
+
+  // Determine PDF orientation based on aspect ratio
+  const orientation = mapWidth > mapHeight ? 'landscape' : 'portrait';
+  const pdf = new jsPDF({ orientation, unit: 'px', format: [mapWidth, mapHeight] });
+
+  // Background
+  pdf.setFillColor(bgColor);
+  pdf.rect(0, 0, mapWidth, mapHeight, 'F');
+
+  const offsetX = -box.minX + padding;
+  const offsetY = -box.minY + padding;
+
+  // Render connections
+  renderConnectionsToPdf(pdf, layout.root, theme, structureType, mapSettings, offsetX, offsetY);
+
+  // Render nodes
+  renderNodesToPdf(pdf, layout.root, theme, mapSettings, offsetX, offsetY);
+
+  return pdf.output('blob');
+}
+
+// ===== Markdown Export =====
+
+export function exportAsMarkdown(rootTopic: Topic): string {
+  const lines: string[] = [];
+  buildMarkdownNode(lines, rootTopic, 0);
+  return lines.join('\n');
+}
+
+function buildMarkdownNode(lines: string[], topic: Topic, depth: number) {
+  if (depth === 0) {
+    lines.push(`# ${topic.title}`);
+  } else if (depth === 1) {
+    lines.push(`\n## ${topic.title}`);
+  } else if (depth === 2) {
+    lines.push(`\n### ${topic.title}`);
+  } else {
+    const indent = '  '.repeat(depth - 3);
+    lines.push(`${indent}- ${topic.title}`);
+  }
+
+  // Add notes as blockquote
+  if (topic.notes && topic.notes.length > 0) {
+    const noteText = topic.notes
+      .map((block) => block.children.map((span) => span.text).join(''))
+      .join('\n');
+    if (noteText.trim()) {
+      lines.push('');
+      for (const line of noteText.split('\n')) {
+        lines.push(`> ${line}`);
+      }
+    }
+  }
+
+  for (const child of topic.children.attached) {
+    buildMarkdownNode(lines, child, depth + 1);
+  }
+}
+
+export function downloadText(content: string, filename: string, mimeType = 'text/plain') {
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+  downloadBlob(blob, filename);
 }
 
 // ===== Download helper =====
@@ -376,5 +457,114 @@ function buildSvgNodes(
 
   for (const child of node.children) {
     buildSvgNodes(parts, child, theme, mapSettings);
+  }
+}
+
+// ===== PDF rendering helpers =====
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  if (h.length === 3) {
+    return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16)];
+  }
+  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
+function renderConnectionsToPdf(
+  pdf: jsPDF,
+  node: LayoutNode,
+  theme: ReturnType<typeof getTheme>,
+  structureType: StructureType,
+  mapSettings: MapSettings | undefined,
+  ox: number,
+  oy: number,
+) {
+  for (const child of node.children) {
+    const style = getTopicStyle(child, theme, mapSettings);
+    const lineColor = style.lineColor ?? theme.connectionStyle.lineColor;
+    const lineWidth = theme.connectionStyle.lineWidth;
+    const [r, g, b] = hexToRgb(lineColor);
+
+    pdf.setDrawColor(r, g, b);
+    pdf.setLineWidth(lineWidth);
+
+    const px = node.x + ox;
+    const py = node.y + oy;
+    const cx = child.x + ox;
+    const cy = child.y + oy;
+
+    // Simplified: draw straight lines for PDF (bezier not natively supported in basic jsPDF)
+    if (child.branchDirection === 'down') {
+      const startX = px + node.width / 2;
+      const startY = py + node.height;
+      const endX = cx + child.width / 2;
+      const endY = cy;
+      pdf.line(startX, startY, endX, endY);
+    } else if (child.branchDirection === 'left') {
+      const startX = px;
+      const endX = cx + child.width;
+      pdf.line(startX, py + node.height / 2, endX, cy + child.height / 2);
+    } else {
+      const startX = px + node.width;
+      const endX = cx;
+      pdf.line(startX, py + node.height / 2, endX, cy + child.height / 2);
+    }
+
+    renderConnectionsToPdf(pdf, child, theme, structureType, mapSettings, ox, oy);
+  }
+}
+
+function renderNodesToPdf(
+  pdf: jsPDF,
+  node: LayoutNode,
+  theme: ReturnType<typeof getTheme>,
+  mapSettings: MapSettings | undefined,
+  ox: number,
+  oy: number,
+) {
+  const style = getTopicStyle(node, theme, mapSettings);
+  const x = node.x + ox;
+  const y = node.y + oy;
+  const { width, height } = node;
+  const shape = style.shape ?? 'rounded-rect';
+
+  // Fill
+  const fillColor = style.fillColor ?? '#ffffff';
+  const [fr, fg, fb] = hexToRgb(fillColor);
+  pdf.setFillColor(fr, fg, fb);
+
+  const borderColor = style.borderColor ?? '#d0d0d0';
+  const [br, bg, bb] = hexToRgb(borderColor);
+  pdf.setDrawColor(br, bg, bb);
+  pdf.setLineWidth(style.borderWidth ?? 1);
+
+  if (shape === 'ellipse') {
+    pdf.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 'FD');
+  } else if (shape === 'underline') {
+    pdf.line(x, y + height, x + width, y + height);
+  } else {
+    // rect/rounded-rect/capsule/etc → rounded rect
+    const radius = shape === 'capsule' ? height / 2 : shape === 'rect' ? 0 : 6;
+    if (radius > 0) {
+      pdf.roundedRect(x, y, width, height, radius, radius, 'FD');
+    } else {
+      pdf.rect(x, y, width, height, 'FD');
+    }
+  }
+
+  // Text
+  const fontSize = style.fontSize ?? 14;
+  const fontColor = style.fontColor ?? '#1a1a1a';
+  const [tr, tg, tb] = hexToRgb(fontColor);
+  pdf.setTextColor(tr, tg, tb);
+  pdf.setFontSize(fontSize);
+  pdf.text(node.topic.title, x + width / 2, y + height / 2, {
+    align: 'center',
+    baseline: 'middle',
+    maxWidth: width - 16,
+  });
+
+  for (const child of node.children) {
+    renderNodesToPdf(pdf, child, theme, mapSettings, ox, oy);
   }
 }

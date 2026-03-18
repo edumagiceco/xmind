@@ -3,11 +3,12 @@ import {
   Plus, Minus, RotateCcw, ZoomIn, ZoomOut,
   Undo2, Redo2, FileDown, FolderOpen, FilePlus,
   PanelRight, Image, FileImage, Maximize, List, GitBranch,
+  FileText, FileType,
 } from 'lucide-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
 import { saveFile, openFile, newFile } from '../../services/tauriBridge';
-import { exportAsPng, exportAsSvg, downloadBlob, downloadSvg } from '../../services/exportService';
+import { exportAsPng, exportAsSvg, exportAsPdf, exportAsMarkdown, downloadBlob, downloadSvg, downloadText } from '../../services/exportService';
 import { computeLayout } from '../../layout/LayoutEngine';
 import { CanvasRenderer } from '../../canvas/CanvasRenderer';
 
@@ -79,11 +80,21 @@ export function MainToolbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [exportMenuOpen]);
 
-  const handleExport = async (format: 'png' | 'svg') => {
+  const handleExport = async (format: 'png' | 'svg' | 'pdf' | 'markdown') => {
     setExportMenuOpen(false);
     try {
       const sheet = useDocumentStore.getState().getActiveSheet();
-      // Create a temporary offscreen canvas to get measureText
+      const baseName = useDocumentStore.getState().currentFilePath
+        ? useDocumentStore.getState().currentFilePath!.split('/').pop()!.replace(/\.xmind$/i, '')
+        : 'mindmap';
+
+      if (format === 'markdown') {
+        const md = exportAsMarkdown(sheet.rootTopic);
+        downloadText(md, `${baseName}.md`, 'text/markdown');
+        return;
+      }
+
+      // Image-based formats need layout
       const tmpCanvas = document.createElement('canvas');
       tmpCanvas.width = 1;
       tmpCanvas.height = 1;
@@ -92,16 +103,15 @@ export function MainToolbar() {
         measureText: (text, fontSize, fontWeight) => tmpRenderer.measureText(text, fontSize, fontWeight),
       });
 
-      const baseName = useDocumentStore.getState().currentFilePath
-        ? useDocumentStore.getState().currentFilePath!.split('/').pop()!.replace(/\.xmind$/i, '')
-        : 'mindmap';
-
       if (format === 'png') {
         const blob = await exportAsPng(layout, sheet.theme, sheet.structure, sheet.mapSettings);
         downloadBlob(blob, `${baseName}.png`);
-      } else {
+      } else if (format === 'svg') {
         const svg = exportAsSvg(layout, sheet.theme, sheet.structure, sheet.mapSettings);
         downloadSvg(svg, `${baseName}.svg`);
+      } else if (format === 'pdf') {
+        const blob = await exportAsPdf(layout, sheet.theme, sheet.structure, sheet.mapSettings);
+        downloadBlob(blob, `${baseName}.pdf`);
       }
     } catch (e) {
       console.error('Export failed:', e);
@@ -123,11 +133,12 @@ export function MainToolbar() {
       <div className="relative" ref={exportMenuRef}>
         <ToolbarButton
           icon={<Image size={18} />}
-          title="Export as Image"
+          title="Export"
           onClick={() => setExportMenuOpen(!exportMenuOpen)}
         />
         {exportMenuOpen && (
-          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[160px]">
+            <div className="px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider">이미지</div>
             <button
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
               onClick={() => handleExport('png')}
@@ -141,6 +152,22 @@ export function MainToolbar() {
             >
               <FileImage size={14} />
               SVG 내보내기
+            </button>
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              onClick={() => handleExport('pdf')}
+            >
+              <FileText size={14} />
+              PDF 내보내기
+            </button>
+            <div className="border-t border-gray-100 my-1" />
+            <div className="px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider">문서</div>
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              onClick={() => handleExport('markdown')}
+            >
+              <FileType size={14} />
+              Markdown 내보내기
             </button>
           </div>
         )}
