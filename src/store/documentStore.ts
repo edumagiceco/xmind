@@ -64,6 +64,12 @@ export interface DocumentState {
   toggleCollapse: (topicId: string) => void;
   moveTopic: (topicId: string, newParentId: string, index?: number) => void;
 
+  // Reorder operations
+  moveTopicUp: (topicId: string) => void;
+  moveTopicDown: (topicId: string) => void;
+  promoteTopic: (topicId: string) => void;
+  demoteTopic: (topicId: string) => void;
+
   // Notes operations
   updateTopicNotes: (topicId: string, text: string) => void;
 
@@ -232,6 +238,107 @@ export const useDocumentStore = create<DocumentState>()(
           workbook.metadata.modifiedAt = new Date().toISOString();
           return { workbook, isDirty: true };
         }),
+      // Move topic up among siblings
+      moveTopicUp: (topicId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          if (sheet.rootTopic.id === topicId) return state;
+
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (!result || !result[1]) return state;
+          const parent = result[1];
+          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
+          if (idx <= 0) return state; // already first or not found
+
+          // Swap with previous sibling
+          const temp = parent.children.attached[idx];
+          parent.children.attached[idx] = parent.children.attached[idx - 1];
+          parent.children.attached[idx - 1] = temp;
+
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      // Move topic down among siblings
+      moveTopicDown: (topicId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          if (sheet.rootTopic.id === topicId) return state;
+
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (!result || !result[1]) return state;
+          const parent = result[1];
+          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
+          if (idx < 0 || idx >= parent.children.attached.length - 1) return state; // already last
+
+          // Swap with next sibling
+          const temp = parent.children.attached[idx];
+          parent.children.attached[idx] = parent.children.attached[idx + 1];
+          parent.children.attached[idx + 1] = temp;
+
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      // Promote: move topic to parent's level (become sibling of parent)
+      promoteTopic: (topicId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          if (sheet.rootTopic.id === topicId) return state;
+
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (!result || !result[1]) return state;
+          const parent = result[1];
+
+          // Parent must not be root for promote (we need grandparent)
+          const parentResult = findTopic(sheet.rootTopic, parent.id);
+          if (!parentResult || !parentResult[1]) return state;
+          const grandparent = parentResult[1];
+
+          // Remove from parent
+          const topic = removeTopic(parent, topicId);
+          if (!topic) return state;
+
+          // Insert after parent in grandparent's children
+          const parentIdx = grandparent.children.attached.findIndex((c) => c.id === parent.id);
+          if (parentIdx !== -1) {
+            grandparent.children.attached.splice(parentIdx + 1, 0, topic);
+          } else {
+            grandparent.children.attached.push(topic);
+          }
+
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      // Demote: move topic to become child of previous sibling
+      demoteTopic: (topicId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          if (sheet.rootTopic.id === topicId) return state;
+
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (!result || !result[1]) return state;
+          const parent = result[1];
+          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
+          if (idx <= 0) return state; // no previous sibling to become parent
+
+          // Previous sibling becomes new parent
+          const newParent = parent.children.attached[idx - 1];
+          const topic = removeTopic(parent, topicId);
+          if (!topic) return state;
+
+          newParent.children.attached.push(topic);
+          newParent.collapsed = false;
+
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
       updateTopicNotes: (topicId: string, text: string) =>
         set((state) => {
           const workbook = cloneDeep(state.workbook);

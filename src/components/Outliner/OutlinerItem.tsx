@@ -18,6 +18,10 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
   const deleteTopic = useDocumentStore((s) => s.deleteTopic);
   const updateTopicTitle = useDocumentStore((s) => s.updateTopicTitle);
   const toggleCollapse = useDocumentStore((s) => s.toggleCollapse);
+  const moveTopicUp = useDocumentStore((s) => s.moveTopicUp);
+  const moveTopicDown = useDocumentStore((s) => s.moveTopicDown);
+  const promoteTopic = useDocumentStore((s) => s.promoteTopic);
+  const demoteTopic = useDocumentStore((s) => s.demoteTopic);
   const startEditing = useUIStore((s) => s.startEditing);
   const stopEditing = useUIStore((s) => s.stopEditing);
   const editingTopicId = useUIStore((s) => s.editingTopicId);
@@ -97,6 +101,18 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
         e.preventDefault();
         toggleCollapse(topic.id);
       }
+    } else if (e.altKey && e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveTopicUp(topic.id);
+    } else if (e.altKey && e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveTopicDown(topic.id);
+    } else if (e.altKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      promoteTopic(topic.id);
+    } else if (e.altKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      demoteTopic(topic.id);
     }
   };
 

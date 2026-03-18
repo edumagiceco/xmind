@@ -3,7 +3,7 @@ import {
   Plus, Minus, RotateCcw, ZoomIn, ZoomOut,
   Undo2, Redo2, FileDown, FolderOpen, FilePlus,
   PanelRight, Image, FileImage, Maximize, List, GitBranch,
-  FileText, FileType,
+  FileText, FileType, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
 } from 'lucide-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
@@ -195,6 +195,34 @@ export function MainToolbar() {
           const selected = selectedTopicIds[0];
           if (selected) useDocumentStore.getState().deleteTopic(selected);
         }}
+        disabled={selectedTopicIds.length === 0}
+      />
+
+      <Divider />
+
+      {/* Reorder operations */}
+      <ToolbarButton
+        icon={<ArrowUp size={18} />}
+        title="Move Up (⌥↑)"
+        onClick={() => { const s = selectedTopicIds[0]; if (s) useDocumentStore.getState().moveTopicUp(s); }}
+        disabled={selectedTopicIds.length === 0}
+      />
+      <ToolbarButton
+        icon={<ArrowDown size={18} />}
+        title="Move Down (⌥↓)"
+        onClick={() => { const s = selectedTopicIds[0]; if (s) useDocumentStore.getState().moveTopicDown(s); }}
+        disabled={selectedTopicIds.length === 0}
+      />
+      <ToolbarButton
+        icon={<ArrowLeft size={18} />}
+        title="Promote (⌥←)"
+        onClick={() => { const s = selectedTopicIds[0]; if (s) useDocumentStore.getState().promoteTopic(s); }}
+        disabled={selectedTopicIds.length === 0}
+      />
+      <ToolbarButton
+        icon={<ArrowRight size={18} />}
+        title="Demote (⌥→)"
+        onClick={() => { const s = selectedTopicIds[0]; if (s) useDocumentStore.getState().demoteTopic(s); }}
         disabled={selectedTopicIds.length === 0}
       />
 

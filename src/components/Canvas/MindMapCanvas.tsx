@@ -386,29 +386,45 @@ export function MindMapCanvas() {
           ui.clearSelection();
           break;
         }
-        // Arrow key navigation
+        // Arrow keys: Alt = reorder/promote/demote, plain = navigate
         case 'ArrowUp': {
           e.preventDefault();
-          const upId = findAdjacentTopic('up');
-          if (upId) ui.selectTopic(upId);
+          if (e.altKey) {
+            doc.moveTopicUp(selected);
+          } else {
+            const upId = findAdjacentTopic('up');
+            if (upId) ui.selectTopic(upId);
+          }
           break;
         }
         case 'ArrowDown': {
           e.preventDefault();
-          const downId = findAdjacentTopic('down');
-          if (downId) ui.selectTopic(downId);
+          if (e.altKey) {
+            doc.moveTopicDown(selected);
+          } else {
+            const downId = findAdjacentTopic('down');
+            if (downId) ui.selectTopic(downId);
+          }
           break;
         }
         case 'ArrowLeft': {
           e.preventDefault();
-          const leftId = findAdjacentTopic('left');
-          if (leftId) ui.selectTopic(leftId);
+          if (e.altKey) {
+            doc.promoteTopic(selected);
+          } else {
+            const leftId = findAdjacentTopic('left');
+            if (leftId) ui.selectTopic(leftId);
+          }
           break;
         }
         case 'ArrowRight': {
           e.preventDefault();
-          const rightId = findAdjacentTopic('right');
-          if (rightId) ui.selectTopic(rightId);
+          if (e.altKey) {
+            doc.demoteTopic(selected);
+          } else {
+            const rightId = findAdjacentTopic('right');
+            if (rightId) ui.selectTopic(rightId);
+          }
           break;
         }
         case 'z':
