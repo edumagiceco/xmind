@@ -1,4 +1,4 @@
-import type { LayoutNode, TopicStyle, MapSettings, StructureType } from '../model/types';
+import type { LayoutNode, TopicStyle, MapSettings, StructureType, Relationship } from '../model/types';
 import type { LayoutResult } from '../layout/types';
 import { Camera } from './Camera';
 import { getTopicStyle, getTheme } from '../themes/ThemeEngine';
@@ -17,6 +17,7 @@ export class CanvasRenderer {
   private themeId = 'default';
   private mapSettings: MapSettings | undefined;
   private structureType: StructureType = 'mind-map';
+  private relationships: Relationship[] = [];
   private needsRender = true;
 
   // Drag state
@@ -75,6 +76,11 @@ export class CanvasRenderer {
 
   setStructureType(type: StructureType) {
     this.structureType = type;
+    this.needsRender = true;
+  }
+
+  setRelationships(rels: Relationship[]) {
+    this.relationships = rels;
     this.needsRender = true;
   }
 
@@ -239,6 +245,9 @@ export class CanvasRenderer {
     // Draw all nodes
     this.renderNodes(this.layout.root);
 
+    // Draw relationships
+    this.renderRelationships();
+
     // Draw drag feedback
     if (this.dragId) {
       if (this.dropTargetId && this.dropPosition) {
@@ -356,6 +365,11 @@ export class CanvasRenderer {
     // Render markers
     if (node.topic.markers.length > 0) {
       this.renderMarkers(node);
+    }
+
+    // Render hyperlink indicator
+    if (node.topic.hyperlink) {
+      this.renderHyperlinkIndicator(node);
     }
 
     // Render notes indicator
@@ -606,6 +620,65 @@ export class CanvasRenderer {
     ctx.stroke();
   }
 
+  /** Render relationship lines between topics */
+  private renderRelationships() {
+    if (!this.layout || this.relationships.length === 0) return;
+    const { ctx } = this;
+
+    for (const rel of this.relationships) {
+      const startNode = this.layout.nodes.get(rel.startTopicId);
+      const endNode = this.layout.nodes.get(rel.endTopicId);
+      if (!startNode || !endNode) continue;
+
+      const sx = startNode.x + startNode.width / 2;
+      const sy = startNode.y + startNode.height / 2;
+      const ex = endNode.x + endNode.width / 2;
+      const ey = endNode.y + endNode.height / 2;
+
+      const lineColor = rel.style?.lineColor ?? '#ff6b6b';
+      const lineWidth = rel.style?.lineWidth ?? 2;
+
+      ctx.save();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash([8, 4]);
+      ctx.globalAlpha = 0.8;
+
+      // Draw curved line
+      const cpX = (sx + ex) / 2;
+      const cpY = Math.min(sy, ey) - 40;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpX, cpY, ex, ey);
+      ctx.stroke();
+
+      // Arrow at end
+      if (rel.style?.arrowEnd !== false) {
+        const angle = Math.atan2(ey - cpY, ex - cpX);
+        const arrowLen = 10;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - arrowLen * Math.cos(angle - 0.4), ey - arrowLen * Math.sin(angle - 0.4));
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - arrowLen * Math.cos(angle + 0.4), ey - arrowLen * Math.sin(angle + 0.4));
+        ctx.stroke();
+      }
+
+      // Label
+      if (rel.title) {
+        ctx.setLineDash([]);
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = lineColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(rel.title, cpX, cpY - 4);
+      }
+
+      ctx.restore();
+    }
+  }
+
   /** Render drop indicator line for before/after positions */
   private renderDropIndicator() {
     if (!this.layout || !this.dropTargetId || !this.dropPosition || this.dropPosition === 'child') return;
@@ -728,6 +801,23 @@ export class CanvasRenderer {
         offsetX += size + gap;
       }
     }
+    ctx.restore();
+  }
+
+  /** Render a small link icon at the bottom-right corner */
+  private renderHyperlinkIndicator(node: LayoutNode) {
+    const { ctx } = this;
+    const ix = node.x + node.width - 6;
+    const iy = node.y + node.height - 12;
+
+    ctx.save();
+    ctx.font = '10px sans-serif';
+    ctx.fillStyle = '#3b82f6';
+    ctx.globalAlpha = 0.8;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🔗', ix + 4, iy + 4);
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 

@@ -34,6 +34,7 @@ export function StylePanel() {
   const rootTopic = useDocumentStore((s) => s.getRootTopic());
   const updateTopicStyle = useDocumentStore((s) => s.updateTopicStyle);
   const toggleMarker = useDocumentStore((s) => s.toggleMarker);
+  const updateTopicHyperlink = useDocumentStore((s) => s.updateTopicHyperlink);
 
   const topicId = selectedTopicIds[0];
   const topic = topicId ? findTopicById(rootTopic, topicId) : null;
@@ -125,6 +126,28 @@ export function StylePanel() {
           markers={topic.markers}
           onToggle={(groupId, markerId) => toggleMarker(topic.id, groupId, markerId)}
         />
+      </Section>
+
+      <Section title="Hyperlink">
+        <div className="flex gap-1">
+          <input
+            type="url"
+            placeholder="https://..."
+            value={topic.hyperlink ?? ''}
+            onChange={(e) => updateTopicHyperlink(topic.id, e.target.value || undefined)}
+            className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-blue-400 focus:outline-none bg-white min-w-0"
+          />
+          {topic.hyperlink && (
+            <a
+              href={topic.hyperlink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
+            >
+              열기
+            </a>
+          )}
+        </div>
       </Section>
     </div>
   );

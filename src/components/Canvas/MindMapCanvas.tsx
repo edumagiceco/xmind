@@ -85,6 +85,7 @@ export function MindMapCanvas() {
     renderer.setTheme(sheet.theme);
     renderer.setMapSettings(sheet.mapSettings);
     renderer.setStructureType(sheet.structure);
+    renderer.setRelationships(sheet.relationships);
   }, [workbook, activeSheetId]);
 
   // Sync camera to renderer

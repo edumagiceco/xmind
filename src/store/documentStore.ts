@@ -56,6 +56,12 @@ export interface DocumentState {
   markSaved: () => void;
   setCurrentFilePath: (path: string | null) => void;
 
+  // Sheet operations
+  setActiveSheet: (sheetId: string) => void;
+  addSheet: () => string;
+  removeSheet: (sheetId: string) => void;
+  renameSheet: (sheetId: string, title: string) => void;
+
   // Topic operations
   updateTopicTitle: (topicId: string, title: string) => void;
   addChildTopic: (parentId: string) => string;
@@ -75,6 +81,13 @@ export interface DocumentState {
 
   // Marker operations
   toggleMarker: (topicId: string, groupId: string, markerId: string) => void;
+
+  // Hyperlink operations
+  updateTopicHyperlink: (topicId: string, url: string | undefined) => void;
+
+  // Relationship operations
+  addRelationship: (startTopicId: string, endTopicId: string) => void;
+  removeRelationship: (relationshipId: string) => void;
 
   // Style & settings operations
   updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) => void;
@@ -129,6 +142,42 @@ export const useDocumentStore = create<DocumentState>()(
 
       markSaved: () => set({ isDirty: false }),
       setCurrentFilePath: (path: string | null) => set({ currentFilePath: path }),
+
+      setActiveSheet: (sheetId: string) => set({ activeSheetId: sheetId }),
+
+      addSheet: () => {
+        const newSheetId = generateId();
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const rootTopic = createTopic(generateId(), 'Central Topic');
+          const sheet = createSheet(newSheetId, `Sheet ${workbook.sheets.length + 1}`, rootTopic);
+          workbook.sheets.push(sheet);
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, activeSheetId: newSheetId, isDirty: true };
+        });
+        return newSheetId;
+      },
+
+      removeSheet: (sheetId: string) =>
+        set((state) => {
+          if (state.workbook.sheets.length <= 1) return state;
+          const workbook = cloneDeep(state.workbook);
+          workbook.sheets = workbook.sheets.filter((s) => s.id !== sheetId);
+          const newActiveId = state.activeSheetId === sheetId
+            ? workbook.sheets[0].id
+            : state.activeSheetId;
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, activeSheetId: newActiveId, isDirty: true };
+        }),
+
+      renameSheet: (sheetId: string, title: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === sheetId);
+          if (sheet) sheet.title = title;
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
 
       updateTopicTitle: (topicId: string, title: string) =>
         set((state) => {
@@ -383,6 +432,41 @@ export const useDocumentStore = create<DocumentState>()(
               topic.markers.push({ groupId, markerId });
             }
           }
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      updateTopicHyperlink: (topicId: string, url: string | undefined) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (result) {
+            result[0].hyperlink = url?.trim() || undefined;
+          }
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      addRelationship: (startTopicId: string, endTopicId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          sheet.relationships.push({
+            id: generateId(),
+            startTopicId,
+            endTopicId,
+            style: { lineColor: '#ff6b6b', lineWidth: 2, lineStyle: 'curved', arrowEnd: true },
+          });
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      removeRelationship: (relationshipId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          sheet.relationships = sheet.relationships.filter((r) => r.id !== relationshipId);
           workbook.metadata.modifiedAt = new Date().toISOString();
           return { workbook, isDirty: true };
         }),

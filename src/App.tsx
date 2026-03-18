@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { MindMapCanvas } from './components/Canvas/MindMapCanvas';
@@ -6,6 +6,9 @@ import { MainToolbar } from './components/Toolbar/MainToolbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { ZenModeOverlay } from './components/ZenModeOverlay';
 import { OutlinerView } from './components/Outliner/OutlinerView';
+import { SearchBar } from './components/SearchBar';
+import { SheetTabs } from './components/SheetTabs';
+import { CommandPalette } from './components/CommandPalette';
 import { useUIStore } from './store/uiStore';
 import { useDocumentStore } from './store/documentStore';
 import { openFile, saveFile, newFile } from './services/tauriBridge';
@@ -54,6 +57,25 @@ function App() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const isZenMode = useUIStore((s) => s.isZenMode);
   const viewMode = useUIStore((s) => s.viewMode);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+
+  // Global keyboard shortcuts for search and command palette
+  const handleGlobalKeys = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !e.shiftKey) {
+      e.preventDefault();
+      setShowSearch((v) => !v);
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      setShowCommandPalette((v) => !v);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [handleGlobalKeys]);
 
   // Listen for native menu events from Tauri
   useEffect(() => {
@@ -114,6 +136,7 @@ function App() {
       <div className="flex flex-col w-full h-full">
         <div className="flex-1 relative">
           <MindMapCanvas />
+          {showSearch && <SearchBar onClose={() => setShowSearch(false)} />}
         </div>
         <ZenModeOverlay />
       </div>
@@ -123,12 +146,15 @@ function App() {
   return (
     <div className="flex flex-col w-full h-full">
       <MainToolbar />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 relative">
           {viewMode === 'map' ? <MindMapCanvas /> : <OutlinerView />}
         </div>
         {sidebarOpen && <Sidebar />}
+        {showSearch && <SearchBar onClose={() => setShowSearch(false)} />}
       </div>
+      <SheetTabs />
+      {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
     </div>
   );
 }
