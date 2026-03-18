@@ -326,6 +326,18 @@ export function MindMapCanvas() {
           }).catch(console.error);
           return;
         }
+        if ((e.key === 'f' || e.key === 'F') && e.shiftKey) {
+          e.preventDefault();
+          ui.toggleZenMode();
+          return;
+        }
+      }
+
+      // ESC exits Zen Mode
+      if (e.key === 'Escape' && ui.isZenMode) {
+        e.preventDefault();
+        ui.setZenMode(false);
+        return;
       }
 
       // Don't handle if editing text

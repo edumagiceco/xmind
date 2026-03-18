@@ -2,6 +2,7 @@ import type { LayoutNode, TopicStyle, MapSettings, StructureType } from '../mode
 import type { LayoutResult } from '../layout/types';
 import { Camera } from './Camera';
 import { getTopicStyle, getTheme } from '../themes/ThemeEngine';
+import { getMarkerIcon } from '../model/markers';
 
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
@@ -202,6 +203,16 @@ export class CanvasRenderer {
     // Render text (skip if editing — the overlay input handles text)
     if (!isEditing) {
       this.renderNodeText(node, style);
+    }
+
+    // Render markers
+    if (node.topic.markers.length > 0) {
+      this.renderMarkers(node);
+    }
+
+    // Render notes indicator
+    if (node.topic.notes && node.topic.notes.length > 0) {
+      this.renderNotesIndicator(node);
     }
 
     // Render collapse/expand indicator
@@ -440,6 +451,65 @@ export class CanvasRenderer {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
+  }
+
+  /** Render marker emojis to the left of the node text */
+  private renderMarkers(node: LayoutNode) {
+    const { ctx } = this;
+    const markers = node.topic.markers;
+    const size = 12;
+    const gap = 2;
+    const startX = node.x + 4;
+    const centerY = node.y + node.height / 2;
+
+    ctx.save();
+    ctx.font = `${size}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    let offsetX = 0;
+    for (const marker of markers) {
+      const icon = getMarkerIcon(marker.groupId, marker.markerId);
+      if (icon) {
+        ctx.fillText(icon, startX + offsetX, centerY);
+        offsetX += size + gap;
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Render a small notes icon at the top-right corner of a node */
+  private renderNotesIndicator(node: LayoutNode) {
+    const { ctx } = this;
+    const ix = node.x + node.width - 6;
+    const iy = node.y + 4;
+    const s = 8;
+
+    ctx.save();
+    ctx.fillStyle = '#f59e0b';
+    ctx.globalAlpha = 0.85;
+
+    // Small folded note icon
+    ctx.beginPath();
+    ctx.moveTo(ix, iy);
+    ctx.lineTo(ix + s, iy);
+    ctx.lineTo(ix + s, iy + s * 0.7);
+    ctx.lineTo(ix + s * 0.7, iy + s);
+    ctx.lineTo(ix, iy + s);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fold triangle
+    ctx.fillStyle = '#d97706';
+    ctx.beginPath();
+    ctx.moveTo(ix + s * 0.7, iy + s);
+    ctx.lineTo(ix + s, iy + s * 0.7);
+    ctx.lineTo(ix + s * 0.7, iy + s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   private roundedRect(x: number, y: number, w: number, h: number, r: number) {

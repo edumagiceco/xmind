@@ -5,6 +5,7 @@ import { ShapeSelector } from './controls/ShapeSelector';
 import { ColorPicker } from './controls/ColorPicker';
 import { FontControls } from './controls/FontControls';
 import { LineStylePicker } from './controls/LineStylePicker';
+import { MarkerPicker } from './controls/MarkerPicker';
 
 function findTopicById(root: Topic, id: string): Topic | null {
   if (root.id === id) return root;
@@ -32,6 +33,7 @@ export function StylePanel() {
   const selectedTopicIds = useUIStore((s) => s.selectedTopicIds);
   const rootTopic = useDocumentStore((s) => s.getRootTopic());
   const updateTopicStyle = useDocumentStore((s) => s.updateTopicStyle);
+  const toggleMarker = useDocumentStore((s) => s.toggleMarker);
 
   const topicId = selectedTopicIds[0];
   const topic = topicId ? findTopicById(rootTopic, topicId) : null;
@@ -115,6 +117,13 @@ export function StylePanel() {
           lineWidth={style.lineWidth}
           lineColor={style.lineColor}
           onChange={update}
+        />
+      </Section>
+
+      <Section title="Markers">
+        <MarkerPicker
+          markers={topic.markers}
+          onToggle={(groupId, markerId) => toggleMarker(topic.id, groupId, markerId)}
         />
       </Section>
     </div>

@@ -17,8 +17,14 @@ export interface UIState {
   hoveredTopicId: string | null;
 
   // Sidebar
-  sidebarTab: 'style' | 'map';
+  sidebarTab: 'style' | 'map' | 'notes';
   sidebarOpen: boolean;
+
+  // View mode
+  viewMode: 'map' | 'outliner';
+
+  // Zen Mode
+  isZenMode: boolean;
 
   // Interaction mode
   isDragging: boolean;
@@ -36,10 +42,16 @@ export interface UIState {
   stopEditing: () => void;
   setHoveredTopic: (topicId: string | null) => void;
 
+  setViewMode: (mode: 'map' | 'outliner') => void;
+  toggleViewMode: () => void;
+
+  toggleZenMode: () => void;
+  setZenMode: (zen: boolean) => void;
+
   setDragging: (dragging: boolean) => void;
   setPanning: (panning: boolean) => void;
 
-  setSidebarTab: (tab: 'style' | 'map') => void;
+  setSidebarTab: (tab: 'style' | 'map' | 'notes') => void;
   toggleSidebar: () => void;
 }
 
@@ -50,6 +62,8 @@ export const useUIStore = create<UIState>()((set) => ({
   hoveredTopicId: null,
   sidebarTab: 'style',
   sidebarOpen: true,
+  viewMode: 'map',
+  isZenMode: false,
   isDragging: false,
   isPanning: false,
 
@@ -100,6 +114,12 @@ export const useUIStore = create<UIState>()((set) => ({
       if (state.hoveredTopicId === topicId) return state;
       return { hoveredTopicId: topicId };
     }),
+
+  setViewMode: (mode) => set({ viewMode: mode }),
+  toggleViewMode: () => set((state) => ({ viewMode: state.viewMode === 'map' ? 'outliner' : 'map' })),
+
+  toggleZenMode: () => set((state) => ({ isZenMode: !state.isZenMode })),
+  setZenMode: (zen) => set({ isZenMode: zen }),
 
   setDragging: (dragging) => set({ isDragging: dragging }),
   setPanning: (panning) => set({ isPanning: panning }),

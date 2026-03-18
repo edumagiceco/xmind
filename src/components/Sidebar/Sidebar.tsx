@@ -2,10 +2,12 @@ import { X } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { StylePanel } from './StylePanel';
 import { MapPanel } from './MapPanel';
+import { NotesPanel } from './NotesPanel';
 
 const TABS = [
   { key: 'style' as const, label: 'Style' },
   { key: 'map' as const, label: 'Map' },
+  { key: 'notes' as const, label: 'Notes' },
 ];
 
 export function Sidebar() {
@@ -51,7 +53,9 @@ export function Sidebar() {
 
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
-        {sidebarTab === 'style' ? <StylePanel /> : <MapPanel />}
+        {sidebarTab === 'style' && <StylePanel />}
+        {sidebarTab === 'map' && <MapPanel />}
+        {sidebarTab === 'notes' && <NotesPanel />}
       </div>
     </div>
   );

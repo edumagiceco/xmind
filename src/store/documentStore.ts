@@ -64,6 +64,12 @@ export interface DocumentState {
   toggleCollapse: (topicId: string) => void;
   moveTopic: (topicId: string, newParentId: string, index?: number) => void;
 
+  // Notes operations
+  updateTopicNotes: (topicId: string, text: string) => void;
+
+  // Marker operations
+  toggleMarker: (topicId: string, groupId: string, markerId: string) => void;
+
   // Style & settings operations
   updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) => void;
   setSheetStructure: (structure: StructureType) => void;
@@ -226,6 +232,46 @@ export const useDocumentStore = create<DocumentState>()(
           workbook.metadata.modifiedAt = new Date().toISOString();
           return { workbook, isDirty: true };
         }),
+      updateTopicNotes: (topicId: string, text: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (result) {
+            if (text.trim()) {
+              result[0].notes = [{ type: 'paragraph', children: [{ text }] }];
+            } else {
+              result[0].notes = undefined;
+            }
+          }
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
+      toggleMarker: (topicId: string, groupId: string, markerId: string) =>
+        set((state) => {
+          const workbook = cloneDeep(state.workbook);
+          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const result = findTopic(sheet.rootTopic, topicId);
+          if (result) {
+            const topic = result[0];
+            const existingIdx = topic.markers.findIndex(
+              (m) => m.groupId === groupId && m.markerId === markerId,
+            );
+
+            if (existingIdx !== -1) {
+              // Remove marker if it already exists (toggle off)
+              topic.markers.splice(existingIdx, 1);
+            } else {
+              // Remove any existing marker from same group, then add new one
+              topic.markers = topic.markers.filter((m) => m.groupId !== groupId);
+              topic.markers.push({ groupId, markerId });
+            }
+          }
+          workbook.metadata.modifiedAt = new Date().toISOString();
+          return { workbook, isDirty: true };
+        }),
+
       updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) =>
         set((state) => {
           const workbook = cloneDeep(state.workbook);

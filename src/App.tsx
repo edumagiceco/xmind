@@ -4,16 +4,18 @@ import { ask } from '@tauri-apps/plugin-dialog';
 import { MindMapCanvas } from './components/Canvas/MindMapCanvas';
 import { MainToolbar } from './components/Toolbar/MainToolbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { ZenModeOverlay } from './components/ZenModeOverlay';
+import { OutlinerView } from './components/Outliner/OutlinerView';
 import { useUIStore } from './store/uiStore';
 import { useDocumentStore } from './store/documentStore';
 import { openFile, saveFile, newFile } from './services/tauriBridge';
 
 const isTauri = !!(window as unknown as { __TAURI__: unknown }).__TAURI__;
 
-async function destroyWindow() {
+async function exitApp() {
   if (isTauri) {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    getCurrentWindow().destroy();
+    const { exit } = await import('@tauri-apps/plugin-process');
+    await exit(0);
   }
 }
 
@@ -45,11 +47,13 @@ async function handleQuit() {
   } catch (e) {
     console.error('Quit dialog error:', e);
   }
-  await destroyWindow();
+  await exitApp();
 }
 
 function App() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const isZenMode = useUIStore((s) => s.isZenMode);
+  const viewMode = useUIStore((s) => s.viewMode);
 
   // Listen for native menu events from Tauri
   useEffect(() => {
@@ -105,12 +109,23 @@ function App() {
     };
   }, []);
 
+  if (isZenMode) {
+    return (
+      <div className="flex flex-col w-full h-full">
+        <div className="flex-1 relative">
+          <MindMapCanvas />
+        </div>
+        <ZenModeOverlay />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full h-full">
       <MainToolbar />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 relative">
-          <MindMapCanvas />
+          {viewMode === 'map' ? <MindMapCanvas /> : <OutlinerView />}
         </div>
         {sidebarOpen && <Sidebar />}
       </div>

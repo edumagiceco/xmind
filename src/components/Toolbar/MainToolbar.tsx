@@ -1,11 +1,15 @@
+import { useState, useRef, useEffect } from 'react';
 import {
   Plus, Minus, RotateCcw, ZoomIn, ZoomOut,
   Undo2, Redo2, FileDown, FolderOpen, FilePlus,
-  PanelRight,
+  PanelRight, Image, FileImage, Maximize, List, GitBranch,
 } from 'lucide-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
 import { saveFile, openFile, newFile } from '../../services/tauriBridge';
+import { exportAsPng, exportAsSvg, downloadBlob, downloadSvg } from '../../services/exportService';
+import { computeLayout } from '../../layout/LayoutEngine';
+import { CanvasRenderer } from '../../canvas/CanvasRenderer';
 
 function useFileName() {
   const filePath = useDocumentStore((s) => s.currentFilePath);
@@ -21,6 +25,8 @@ export function MainToolbar() {
   const resetView = useUIStore((s) => s.resetView);
   const camera = useUIStore((s) => s.camera);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const viewMode = useUIStore((s) => s.viewMode);
+  const toggleViewMode = useUIStore((s) => s.toggleViewMode);
   const fileName = useFileName();
 
   const handleUndo = () => useDocumentStore.temporal.getState().undo();
@@ -60,6 +66,49 @@ export function MainToolbar() {
     }
   };
 
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    if (exportMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [exportMenuOpen]);
+
+  const handleExport = async (format: 'png' | 'svg') => {
+    setExportMenuOpen(false);
+    try {
+      const sheet = useDocumentStore.getState().getActiveSheet();
+      // Create a temporary offscreen canvas to get measureText
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = 1;
+      tmpCanvas.height = 1;
+      const tmpRenderer = new CanvasRenderer(tmpCanvas);
+      const layout = computeLayout(sheet.rootTopic, sheet.structure, {
+        measureText: (text, fontSize, fontWeight) => tmpRenderer.measureText(text, fontSize, fontWeight),
+      });
+
+      const baseName = useDocumentStore.getState().currentFilePath
+        ? useDocumentStore.getState().currentFilePath!.split('/').pop()!.replace(/\.xmind$/i, '')
+        : 'mindmap';
+
+      if (format === 'png') {
+        const blob = await exportAsPng(layout, sheet.theme, sheet.structure, sheet.mapSettings);
+        downloadBlob(blob, `${baseName}.png`);
+      } else {
+        const svg = exportAsSvg(layout, sheet.theme, sheet.structure, sheet.mapSettings);
+        downloadSvg(svg, `${baseName}.svg`);
+      }
+    } catch (e) {
+      console.error('Export failed:', e);
+      alert(`내보내기 실패: ${e}`);
+    }
+  };
+
   const zoomPercent = Math.round(camera.zoom * 100);
 
   return (
@@ -69,6 +118,33 @@ export function MainToolbar() {
       <ToolbarButton icon={<FilePlus size={18} />} title="New" onClick={handleNew} />
       <ToolbarButton icon={<FolderOpen size={18} />} title="Open" onClick={handleOpen} />
       <ToolbarButton icon={<FileDown size={18} />} title="Save (⌘S)" onClick={handleSave} />
+
+      {/* Export dropdown */}
+      <div className="relative" ref={exportMenuRef}>
+        <ToolbarButton
+          icon={<Image size={18} />}
+          title="Export as Image"
+          onClick={() => setExportMenuOpen(!exportMenuOpen)}
+        />
+        {exportMenuOpen && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              onClick={() => handleExport('png')}
+            >
+              <FileImage size={14} />
+              PNG 내보내기
+            </button>
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              onClick={() => handleExport('svg')}
+            >
+              <FileImage size={14} />
+              SVG 내보내기
+            </button>
+          </div>
+        )}
+      </div>
 
       <Divider />
 
@@ -99,6 +175,13 @@ export function MainToolbar() {
         <span className="text-sm text-gray-500 truncate max-w-[300px] select-none">{fileName}</span>
       </div>
 
+      {/* View mode toggle */}
+      <ToolbarButton
+        icon={viewMode === 'map' ? <List size={18} /> : <GitBranch size={18} />}
+        title={viewMode === 'map' ? 'Outliner View' : 'Map View'}
+        onClick={toggleViewMode}
+      />
+      <ToolbarButton icon={<Maximize size={18} />} title="Zen Mode (⌘⇧F)" onClick={() => useUIStore.getState().toggleZenMode()} />
       <ToolbarButton icon={<PanelRight size={18} />} title="Toggle Sidebar" onClick={toggleSidebar} />
 
       <Divider />
