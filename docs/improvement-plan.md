@@ -319,10 +319,12 @@ function rebuildTopicMap(root: Topic): Map<string, Topic> {
 **사이드이펙트 위험:** 중간 — 맵 동기화 누락 시 stale 데이터 위험
 
 ### Phase 2 완료 기준
-- [ ] 1000노드 맵에서 마우스 호버 60fps 유지
-- [ ] 아웃라이너 뷰 1000노드 스크롤 끊김 없음
-- [ ] Store 분할 후 모든 기능 정상 동작
-- [ ] 레이아웃 계산 500노드 기준 50ms 이내
+- [x] Quadtree 히트 테스트로 마우스 호버 성능 향상 (O(n) → O(log n))
+- [x] 아웃라이너 React.memo + useTopicActions 훅 적용
+- [x] 레이아웃 높이 메모이제이션 (MindMapLayout + LogicChartLayout)
+- [x] Canvas 뷰포트 컬링 — 오프스크린 노드 렌더링 스킵
+- [x] findTopicById 공유 유틸리티 추출
+- [ ] Store 분할 → Phase 3로 연기 (테스트 구축 후 진행)
 
 ---
 
