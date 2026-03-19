@@ -1,13 +1,9 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
+import { produce } from 'immer';
 import type { Workbook, Sheet, Topic, TopicStyle, StructureType, MapSettings } from '../model/types';
 import { createWorkbook, createSheet, createTopic } from '../model/types';
 import { generateId } from '../utils/id';
-
-// Deep clone helper for immutable updates
-function cloneDeep<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
-}
 
 // Find a topic by id in the tree, returns [topic, parent] or null
 function findTopic(
@@ -40,29 +36,35 @@ function removeTopic(parent: Topic, targetId: string): Topic | null {
   return null;
 }
 
+// Helper: get active sheet from draft workbook
+function getSheet(draft: Workbook, activeSheetId: string): Sheet {
+  return draft.sheets.find((s) => s.id === activeSheetId)!;
+}
+
+// Helper: mark workbook as modified
+function touch(draft: Workbook) {
+  draft.metadata.modifiedAt = new Date().toISOString();
+}
+
 export interface DocumentState {
   workbook: Workbook;
   activeSheetId: string;
   isDirty: boolean;
   currentFilePath: string | null;
 
-  // Getters
   getActiveSheet: () => Sheet;
   getRootTopic: () => Topic;
 
-  // Workbook operations
   setWorkbook: (workbook: Workbook) => void;
   newWorkbook: () => void;
   markSaved: () => void;
   setCurrentFilePath: (path: string | null) => void;
 
-  // Sheet operations
   setActiveSheet: (sheetId: string) => void;
   addSheet: () => string;
   removeSheet: (sheetId: string) => void;
   renameSheet: (sheetId: string, title: string) => void;
 
-  // Topic operations
   updateTopicTitle: (topicId: string, title: string) => void;
   addChildTopic: (parentId: string) => string;
   addSiblingTopic: (topicId: string) => string | null;
@@ -70,26 +72,18 @@ export interface DocumentState {
   toggleCollapse: (topicId: string) => void;
   moveTopic: (topicId: string, newParentId: string, index?: number) => void;
 
-  // Reorder operations
   moveTopicUp: (topicId: string) => void;
   moveTopicDown: (topicId: string) => void;
   promoteTopic: (topicId: string) => void;
   demoteTopic: (topicId: string) => void;
 
-  // Notes operations
   updateTopicNotes: (topicId: string, text: string) => void;
-
-  // Marker operations
   toggleMarker: (topicId: string, groupId: string, markerId: string) => void;
-
-  // Hyperlink operations
   updateTopicHyperlink: (topicId: string, url: string | undefined) => void;
 
-  // Relationship operations
   addRelationship: (startTopicId: string, endTopicId: string) => void;
   removeRelationship: (relationshipId: string) => void;
 
-  // Style & settings operations
   updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) => void;
   setSheetStructure: (structure: StructureType) => void;
   setSheetTheme: (themeId: string) => void;
@@ -99,15 +93,11 @@ export interface DocumentState {
 function createInitialWorkbook(): Workbook {
   const rootId = generateId();
   const rootTopic = createTopic(rootId, 'Central Topic');
-
-  // Add some default children
   const child1 = createTopic(generateId(), 'Main Topic 1');
   const child2 = createTopic(generateId(), 'Main Topic 2');
   const child3 = createTopic(generateId(), 'Main Topic 3');
   const child4 = createTopic(generateId(), 'Main Topic 4');
-
   rootTopic.children.attached = [child1, child2, child3, child4];
-
   const sheetId = generateId();
   const sheet = createSheet(sheetId, 'Sheet 1', rootTopic);
   return createWorkbook(generateId(), [sheet]);
@@ -128,9 +118,7 @@ export const useDocumentStore = create<DocumentState>()(
         return state.workbook.sheets.find((s) => s.id === state.activeSheetId)!;
       },
 
-      getRootTopic: () => {
-        return get().getActiveSheet().rootTopic;
-      },
+      getRootTopic: () => get().getActiveSheet().rootTopic,
 
       setWorkbook: (workbook: Workbook) =>
         set({ workbook, activeSheetId: workbook.sheets[0].id, isDirty: false }),
@@ -142,374 +130,353 @@ export const useDocumentStore = create<DocumentState>()(
 
       markSaved: () => set({ isDirty: false }),
       setCurrentFilePath: (path: string | null) => set({ currentFilePath: path }),
-
       setActiveSheet: (sheetId: string) => set({ activeSheetId: sheetId }),
 
       addSheet: () => {
         const newSheetId = generateId();
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const rootTopic = createTopic(generateId(), 'Central Topic');
-          const sheet = createSheet(newSheetId, `Sheet ${workbook.sheets.length + 1}`, rootTopic);
-          workbook.sheets.push(sheet);
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, activeSheetId: newSheetId, isDirty: true };
-        });
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const rootTopic = createTopic(generateId(), 'Central Topic');
+            draft.sheets.push(createSheet(newSheetId, `Sheet ${draft.sheets.length + 1}`, rootTopic));
+            touch(draft);
+          }),
+          activeSheetId: newSheetId,
+          isDirty: true,
+        }));
         return newSheetId;
       },
 
       removeSheet: (sheetId: string) =>
         set((state) => {
           if (state.workbook.sheets.length <= 1) return state;
-          const workbook = cloneDeep(state.workbook);
-          workbook.sheets = workbook.sheets.filter((s) => s.id !== sheetId);
-          const newActiveId = state.activeSheetId === sheetId
-            ? workbook.sheets[0].id
-            : state.activeSheetId;
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, activeSheetId: newActiveId, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              draft.sheets = draft.sheets.filter((s) => s.id !== sheetId);
+              touch(draft);
+            }),
+            activeSheetId: state.activeSheetId === sheetId ? state.workbook.sheets.find(s => s.id !== sheetId)!.id : state.activeSheetId,
+            isDirty: true,
+          };
         }),
 
       renameSheet: (sheetId: string, title: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === sheetId);
-          if (sheet) sheet.title = title;
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = draft.sheets.find((s) => s.id === sheetId);
+            if (sheet) sheet.title = title;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       updateTopicTitle: (topicId: string, title: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            result[0].title = title;
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) result[0].title = title;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       addChildTopic: (parentId: string) => {
         const newId = generateId();
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, parentId);
-          if (result) {
-            const [parent] = result;
-            const newTopic = createTopic(newId, 'New Topic');
-            parent.children.attached.push(newTopic);
-            parent.collapsed = false;
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        });
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, parentId);
+            if (result) {
+              result[0].children.attached.push(createTopic(newId, 'New Topic'));
+              result[0].collapsed = false;
+            }
+            touch(draft);
+          }),
+          isDirty: true,
+        }));
         return newId;
       },
 
       addSiblingTopic: (topicId: string) => {
         const state = get();
         const sheet = state.getActiveSheet();
-        // Cannot add sibling to root
         if (sheet.rootTopic.id === topicId) return null;
 
         const newId = generateId();
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result && result[1]) {
-            const [, parent] = result;
-            const idx = parent.children.attached.findIndex((c) => c.id === topicId);
-            const newTopic = createTopic(newId, 'New Topic');
-            if (idx !== -1) {
-              parent.children.attached.splice(idx + 1, 0, newTopic);
-            } else {
-              parent.children.attached.push(newTopic);
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result && result[1]) {
+              const parent = result[1];
+              const idx = parent.children.attached.findIndex((c) => c.id === topicId);
+              if (idx !== -1) {
+                parent.children.attached.splice(idx + 1, 0, createTopic(newId, 'New Topic'));
+              } else {
+                parent.children.attached.push(createTopic(newId, 'New Topic'));
+              }
             }
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        });
+            touch(draft);
+          }),
+          isDirty: true,
+        }));
         return newId;
       },
 
       deleteTopic: (topicId: string) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          // Cannot delete root
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           if (sheet.rootTopic.id === topicId) return state;
-
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result && result[1]) {
-            removeTopic(result[1], topicId);
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (result && result[1]) removeTopic(result[1], topicId);
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
 
       toggleCollapse: (topicId: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            result[0].collapsed = !result[0].collapsed;
-          }
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) result[0].collapsed = !result[0].collapsed;
+          }),
+          isDirty: true,
+        })),
 
       moveTopic: (topicId: string, newParentId: string, index?: number) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-
-          // Prevent moving to self
           if (topicId === newParentId) return state;
-
-          // Prevent circular: check if newParent is a descendant of topic
+          // Prevent circular: check on original (non-draft) data
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           const topicResult = findTopic(sheet.rootTopic, topicId);
           if (!topicResult) return state;
           if (findTopic(topicResult[0], newParentId)) return state;
 
-          // Find and remove from current parent
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (!result || !result[1]) return state;
-          const topic = removeTopic(result[1], topicId);
-          if (!topic) return state;
-
-          // Add to new parent
-          const newParentResult = findTopic(sheet.rootTopic, newParentId);
-          if (!newParentResult) return state;
-          const [newParent] = newParentResult;
-
-          if (index !== undefined) {
-            newParent.children.attached.splice(index, 0, topic);
-          } else {
-            newParent.children.attached.push(topic);
-          }
-
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (!result || !result[1]) return;
+              const topic = removeTopic(result[1], topicId);
+              if (!topic) return;
+              const newParentResult = findTopic(draftSheet.rootTopic, newParentId);
+              if (!newParentResult) return;
+              if (index !== undefined) {
+                newParentResult[0].children.attached.splice(index, 0, topic);
+              } else {
+                newParentResult[0].children.attached.push(topic);
+              }
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
-      // Move topic up among siblings
+
       moveTopicUp: (topicId: string) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           if (sheet.rootTopic.id === topicId) return state;
-
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (!result || !result[1]) return state;
-          const parent = result[1];
-          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
-          if (idx <= 0) return state; // already first or not found
-
-          // Swap with previous sibling
-          const temp = parent.children.attached[idx];
-          parent.children.attached[idx] = parent.children.attached[idx - 1];
-          parent.children.attached[idx - 1] = temp;
-
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (!result || !result[1]) return;
+              const arr = result[1].children.attached;
+              const idx = arr.findIndex((c) => c.id === topicId);
+              if (idx <= 0) return;
+              [arr[idx], arr[idx - 1]] = [arr[idx - 1], arr[idx]];
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
 
-      // Move topic down among siblings
       moveTopicDown: (topicId: string) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           if (sheet.rootTopic.id === topicId) return state;
-
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (!result || !result[1]) return state;
-          const parent = result[1];
-          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
-          if (idx < 0 || idx >= parent.children.attached.length - 1) return state; // already last
-
-          // Swap with next sibling
-          const temp = parent.children.attached[idx];
-          parent.children.attached[idx] = parent.children.attached[idx + 1];
-          parent.children.attached[idx + 1] = temp;
-
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (!result || !result[1]) return;
+              const arr = result[1].children.attached;
+              const idx = arr.findIndex((c) => c.id === topicId);
+              if (idx < 0 || idx >= arr.length - 1) return;
+              [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
 
-      // Promote: move topic to parent's level (become sibling of parent)
       promoteTopic: (topicId: string) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           if (sheet.rootTopic.id === topicId) return state;
-
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (!result || !result[1]) return state;
-          const parent = result[1];
-
-          // Parent must not be root for promote (we need grandparent)
-          const parentResult = findTopic(sheet.rootTopic, parent.id);
-          if (!parentResult || !parentResult[1]) return state;
-          const grandparent = parentResult[1];
-
-          // Remove from parent
-          const topic = removeTopic(parent, topicId);
-          if (!topic) return state;
-
-          // Insert after parent in grandparent's children
-          const parentIdx = grandparent.children.attached.findIndex((c) => c.id === parent.id);
-          if (parentIdx !== -1) {
-            grandparent.children.attached.splice(parentIdx + 1, 0, topic);
-          } else {
-            grandparent.children.attached.push(topic);
-          }
-
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (!result || !result[1]) return;
+              const parent = result[1];
+              const parentResult = findTopic(draftSheet.rootTopic, parent.id);
+              if (!parentResult || !parentResult[1]) return;
+              const grandparent = parentResult[1];
+              const topic = removeTopic(parent, topicId);
+              if (!topic) return;
+              const parentIdx = grandparent.children.attached.findIndex((c) => c.id === parent.id);
+              if (parentIdx !== -1) {
+                grandparent.children.attached.splice(parentIdx + 1, 0, topic);
+              } else {
+                grandparent.children.attached.push(topic);
+              }
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
 
-      // Demote: move topic to become child of previous sibling
       demoteTopic: (topicId: string) =>
         set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
+          const sheet = getSheet(state.workbook, state.activeSheetId);
           if (sheet.rootTopic.id === topicId) return state;
-
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (!result || !result[1]) return state;
-          const parent = result[1];
-          const idx = parent.children.attached.findIndex((c) => c.id === topicId);
-          if (idx <= 0) return state; // no previous sibling to become parent
-
-          // Previous sibling becomes new parent
-          const newParent = parent.children.attached[idx - 1];
-          const topic = removeTopic(parent, topicId);
-          if (!topic) return state;
-
-          newParent.children.attached.push(topic);
-          newParent.collapsed = false;
-
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
+          return {
+            workbook: produce(state.workbook, (draft) => {
+              const draftSheet = getSheet(draft, state.activeSheetId);
+              const result = findTopic(draftSheet.rootTopic, topicId);
+              if (!result || !result[1]) return;
+              const parent = result[1];
+              const idx = parent.children.attached.findIndex((c) => c.id === topicId);
+              if (idx <= 0) return;
+              const newParent = parent.children.attached[idx - 1];
+              const topic = removeTopic(parent, topicId);
+              if (!topic) return;
+              newParent.children.attached.push(topic);
+              newParent.collapsed = false;
+              touch(draft);
+            }),
+            isDirty: true,
+          };
         }),
 
       updateTopicNotes: (topicId: string, text: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            if (text.trim()) {
-              result[0].notes = [{ type: 'paragraph', children: [{ text }] }];
-            } else {
-              result[0].notes = undefined;
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) {
+              result[0].notes = text.trim() ? [{ type: 'paragraph', children: [{ text }] }] : undefined;
             }
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       toggleMarker: (topicId: string, groupId: string, markerId: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            const topic = result[0];
-            const existingIdx = topic.markers.findIndex(
-              (m) => m.groupId === groupId && m.markerId === markerId,
-            );
-
-            if (existingIdx !== -1) {
-              // Remove marker if it already exists (toggle off)
-              topic.markers.splice(existingIdx, 1);
-            } else {
-              // Remove any existing marker from same group, then add new one
-              topic.markers = topic.markers.filter((m) => m.groupId !== groupId);
-              topic.markers.push({ groupId, markerId });
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) {
+              const topic = result[0];
+              const existingIdx = topic.markers.findIndex(
+                (m) => m.groupId === groupId && m.markerId === markerId,
+              );
+              if (existingIdx !== -1) {
+                topic.markers.splice(existingIdx, 1);
+              } else {
+                topic.markers = topic.markers.filter((m) => m.groupId !== groupId);
+                topic.markers.push({ groupId, markerId });
+              }
             }
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       updateTopicHyperlink: (topicId: string, url: string | undefined) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            result[0].hyperlink = url?.trim() || undefined;
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) result[0].hyperlink = url?.trim() || undefined;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       addRelationship: (startTopicId: string, endTopicId: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          sheet.relationships.push({
-            id: generateId(),
-            startTopicId,
-            endTopicId,
-            style: { lineColor: '#ff6b6b', lineWidth: 2, lineStyle: 'curved', arrowEnd: true },
-          });
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            sheet.relationships.push({
+              id: generateId(),
+              startTopicId,
+              endTopicId,
+              style: { lineColor: '#ff6b6b', lineWidth: 2, lineStyle: 'curved', arrowEnd: true },
+            });
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       removeRelationship: (relationshipId: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          sheet.relationships = sheet.relationships.filter((r) => r.id !== relationshipId);
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            sheet.relationships = sheet.relationships.filter((r) => r.id !== relationshipId);
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       updateTopicStyle: (topicId: string, style: Partial<TopicStyle>) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          const result = findTopic(sheet.rootTopic, topicId);
-          if (result) {
-            const merged = { ...result[0].style, ...style };
-            result[0].style = Object.keys(merged).length > 0 ? merged : undefined;
-          }
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) {
+              const merged = { ...result[0].style, ...style };
+              result[0].style = Object.keys(merged).length > 0 ? merged : undefined;
+            }
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       setSheetStructure: (structure: StructureType) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          sheet.structure = structure;
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            getSheet(draft, state.activeSheetId).structure = structure;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       setSheetTheme: (themeId: string) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          sheet.theme = themeId;
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            getSheet(draft, state.activeSheetId).theme = themeId;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
 
       updateMapSettings: (settings: Partial<MapSettings>) =>
-        set((state) => {
-          const workbook = cloneDeep(state.workbook);
-          const sheet = workbook.sheets.find((s) => s.id === state.activeSheetId)!;
-          sheet.mapSettings = { ...sheet.mapSettings, ...settings };
-          workbook.metadata.modifiedAt = new Date().toISOString();
-          return { workbook, isDirty: true };
-        }),
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            sheet.mapSettings = { ...sheet.mapSettings, ...settings };
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
     }),
     { limit: 100 },
   ),

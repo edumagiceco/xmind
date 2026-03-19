@@ -376,6 +376,13 @@ function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function sanitizeSvgAttr(value: string | undefined, fallback: string): string {
+  if (!value) return fallback;
+  // Strip anything that could be an SVG injection (no quotes, no angle brackets, no javascript:)
+  if (/[<>"']|javascript:/i.test(value)) return fallback;
+  return value;
+}
+
 function buildSvgConnections(
   parts: string[],
   node: LayoutNode,
@@ -385,7 +392,7 @@ function buildSvgConnections(
 ) {
   for (const child of node.children) {
     const style = getTopicStyle(child, theme, mapSettings);
-    const lineColor = style.lineColor ?? theme.connectionStyle.lineColor;
+    const lineColor = sanitizeSvgAttr(style.lineColor ?? theme.connectionStyle.lineColor, '#666666');
     const lineWidth = theme.connectionStyle.lineWidth;
 
     const parentCenterY = node.y + node.height / 2;
@@ -430,8 +437,8 @@ function buildSvgNodes(
   const style = getTopicStyle(node, theme, mapSettings);
   const { x, y, width, height } = node;
   const shape = style.shape ?? 'rounded-rect';
-  const fill = style.fillColor ?? '#ffffff';
-  const borderColor = style.borderColor ?? '#d0d0d0';
+  const fill = sanitizeSvgAttr(style.fillColor, '#ffffff');
+  const borderColor = sanitizeSvgAttr(style.borderColor, '#d0d0d0');
   const borderWidth = style.borderWidth ?? 1;
   const dashArray = style.borderStyle === 'dashed' ? ' stroke-dasharray="6,3"' : '';
 
@@ -462,8 +469,14 @@ function buildSvgNodes(
 
 // ===== PDF rendering helpers =====
 
+function sanitizeColor(color: string | undefined, fallback = '#000000'): string {
+  if (!color) return fallback;
+  return /^#[0-9a-fA-F]{3,6}$/.test(color) ? color : fallback;
+}
+
 function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
+  const safe = sanitizeColor(hex, '#000000');
+  const h = safe.replace('#', '');
   if (h.length === 3) {
     return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16)];
   }
