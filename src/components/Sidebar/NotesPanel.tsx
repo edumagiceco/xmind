@@ -2,19 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useDocumentStore } from '../../store/documentStore';
 import type { Topic } from '../../model/types';
-
-function findTopicById(root: Topic, id: string): Topic | null {
-  if (root.id === id) return root;
-  for (const child of root.children.attached) {
-    const found = findTopicById(child, id);
-    if (found) return found;
-  }
-  for (const child of root.children.detached) {
-    const found = findTopicById(child, id);
-    if (found) return found;
-  }
-  return null;
-}
+import { findTopicById } from '../../utils/topicLookup';
 
 function getNotesText(topic: Topic): string {
   if (!topic.notes || topic.notes.length === 0) return '';

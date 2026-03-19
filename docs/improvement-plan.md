@@ -537,4 +537,28 @@ Week 2-3: Phase 3 (품질 보증)
 
 ---
 
+---
+
+## 8. 진행 현황
+
+### Phase 1 (완료 - 2026-03-19)
+- [x] immer 도입 — 24개 store 액션 전환 완료
+- [x] SVG/PDF 입력 검증 — sanitizeColor, sanitizeSvgAttr 추가
+- [x] React Error Boundary — 앱 크래시 복구 UI 추가
+
+### Phase 2 (완료 - 2026-03-19)
+- [x] Quadtree 히트 테스트 — O(n) → O(log n)
+- [x] 레이아웃 높이 메모이제이션 — MindMapLayout, LogicChartLayout
+- [x] Topic ID Lookup 유틸리티 — findTopicById 중복 제거
+- [x] OutlinerItem React.memo + useTopicActions 훅
+- [x] Canvas 오프스크린 컬링 — 뷰포트 밖 노드 렌더링 스킵
+
+### Phase 3 (예정)
+- [ ] Vitest 단위 테스트 42개
+- [ ] Playwright E2E 테스트
+- [ ] 성능 벤치마크
+- [ ] CI/CD 파이프라인
+
+---
+
 *작성일: 2026-03-19 | MindForge v0.1.0 기준*

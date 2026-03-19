@@ -3,6 +3,7 @@ import type { LayoutResult } from '../layout/types';
 import { Camera } from './Camera';
 import { getTopicStyle, getTheme } from '../themes/ThemeEngine';
 import { getMarkerIcon } from '../model/markers';
+import { Quadtree, buildQuadtree } from './Quadtree';
 
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
@@ -18,6 +19,8 @@ export class CanvasRenderer {
   private mapSettings: MapSettings | undefined;
   private structureType: StructureType = 'mind-map';
   private relationships: Relationship[] = [];
+  private quadtree: Quadtree | null = null;
+  private viewportBounds = { minX: -1e9, minY: -1e9, maxX: 1e9, maxY: 1e9 };
   private needsRender = true;
 
   // Drag state
@@ -45,6 +48,7 @@ export class CanvasRenderer {
 
   setLayout(layout: LayoutResult) {
     this.layout = layout;
+    this.quadtree = buildQuadtree(layout.nodes);
     this.needsRender = true;
   }
 
@@ -239,10 +243,16 @@ export class CanvasRenderer {
     // Apply camera transform (include DPR so Retina displays render correctly)
     this.camera.applyTransform(ctx, cw, ch, this.dpr);
 
+    // Compute viewport bounds in world coordinates for culling
+    const viewMargin = 100;
+    const topLeft = this.camera.screenToWorld(-viewMargin, -viewMargin, cw, ch);
+    const bottomRight = this.camera.screenToWorld(cw + viewMargin, ch + viewMargin, cw, ch);
+    this.viewportBounds = { minX: topLeft.x, minY: topLeft.y, maxX: bottomRight.x, maxY: bottomRight.y };
+
     // Draw connections first (below nodes)
     this.renderConnections(this.layout.root, theme.connectionStyle.lineColor);
 
-    // Draw all nodes
+    // Draw all nodes (with viewport culling)
     this.renderNodes(this.layout.root);
 
     // Draw relationships
@@ -327,6 +337,12 @@ export class CanvasRenderer {
     }
   }
 
+  private isInViewport(node: LayoutNode): boolean {
+    const vb = this.viewportBounds;
+    return !(node.x + node.width < vb.minX || node.x > vb.maxX ||
+             node.y + node.height < vb.minY || node.y > vb.maxY);
+  }
+
   private renderNodes(node: LayoutNode) {
     const theme = getTheme(this.themeId);
     const style = getTopicStyle(node, theme, this.mapSettings);
@@ -335,6 +351,15 @@ export class CanvasRenderer {
     const isHovered = this.hoveredId === node.id;
     const isBeingDragged = this.dragId === node.id;
     const isDropTarget = this.dropTargetId === node.id && this.dropPosition === 'child';
+    const visible = this.isInViewport(node);
+
+    // Skip rendering if off-screen (but still recurse children)
+    if (!visible) {
+      for (const child of node.children) {
+        this.renderNodes(child);
+      }
+      return;
+    }
 
     // Dim the dragged node
     if (isBeingDragged) {
@@ -874,6 +899,12 @@ export class CanvasRenderer {
   /** Hit test: find which topic is at the given world coordinates */
   hitTest(worldX: number, worldY: number): string | null {
     if (!this.layout) return null;
+    // Use quadtree for O(log n) hit testing
+    if (this.quadtree) {
+      const node = this.quadtree.queryPoint(worldX, worldY);
+      return node ? node.id : null;
+    }
+    // Fallback to tree traversal
     return this.hitTestNode(this.layout.root, worldX, worldY);
   }
 

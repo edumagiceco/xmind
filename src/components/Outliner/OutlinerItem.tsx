@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import type { Topic } from '../../model/types';
 import { useUIStore } from '../../store/uiStore';
-import { useDocumentStore } from '../../store/documentStore';
+import { useTopicActions } from '../../hooks/useTopicActions';
 
 interface OutlinerItemProps {
   topic: Topic;
@@ -10,21 +10,10 @@ interface OutlinerItemProps {
   isRoot?: boolean;
 }
 
-export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps) {
+export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps) {
   const selectedTopicIds = useUIStore((s) => s.selectedTopicIds);
-  const selectTopic = useUIStore((s) => s.selectTopic);
-  const addChildTopic = useDocumentStore((s) => s.addChildTopic);
-  const addSiblingTopic = useDocumentStore((s) => s.addSiblingTopic);
-  const deleteTopic = useDocumentStore((s) => s.deleteTopic);
-  const updateTopicTitle = useDocumentStore((s) => s.updateTopicTitle);
-  const toggleCollapse = useDocumentStore((s) => s.toggleCollapse);
-  const moveTopicUp = useDocumentStore((s) => s.moveTopicUp);
-  const moveTopicDown = useDocumentStore((s) => s.moveTopicDown);
-  const promoteTopic = useDocumentStore((s) => s.promoteTopic);
-  const demoteTopic = useDocumentStore((s) => s.demoteTopic);
-  const startEditing = useUIStore((s) => s.startEditing);
-  const stopEditing = useUIStore((s) => s.stopEditing);
   const editingTopicId = useUIStore((s) => s.editingTopicId);
+  const { doc, ui } = useTopicActions();
 
   const isSelected = selectedTopicIds.includes(topic.id);
   const isEditing = editingTopicId === topic.id;
@@ -47,17 +36,17 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    selectTopic(topic.id, e.metaKey || e.ctrlKey);
+    ui.selectTopic(topic.id, e.metaKey || e.ctrlKey);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    startEditing(topic.id);
+    ui.startEditing(topic.id);
   };
 
   const handleEditSubmit = () => {
-    updateTopicTitle(topic.id, editValue);
-    stopEditing();
+    doc.updateTopicTitle(topic.id, editValue);
+    ui.stopEditing();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -69,50 +58,50 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
         handleEditSubmit();
       } else if (e.key === 'Escape') {
         setEditValue(topic.title);
-        stopEditing();
+        ui.stopEditing();
       }
       return;
     }
 
     if (e.key === 'Tab') {
       e.preventDefault();
-      const newId = addChildTopic(topic.id);
-      selectTopic(newId);
-      setTimeout(() => startEditing(newId), 50);
+      const newId = doc.addChildTopic(topic.id);
+      ui.selectTopic(newId);
+      setTimeout(() => ui.startEditing(newId), 50);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (!isRoot) {
-        const newId = addSiblingTopic(topic.id);
+        const newId = doc.addSiblingTopic(topic.id);
         if (newId) {
-          selectTopic(newId);
-          setTimeout(() => startEditing(newId), 50);
+          ui.selectTopic(newId);
+          setTimeout(() => ui.startEditing(newId), 50);
         }
       }
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (!isRoot) {
         e.preventDefault();
-        deleteTopic(topic.id);
+        doc.deleteTopic(topic.id);
       }
     } else if (e.key === 'F2') {
       e.preventDefault();
-      startEditing(topic.id);
+      ui.startEditing(topic.id);
     } else if (e.key === ' ') {
       if (hasChildren) {
         e.preventDefault();
-        toggleCollapse(topic.id);
+        doc.toggleCollapse(topic.id);
       }
     } else if (e.altKey && e.key === 'ArrowUp') {
       e.preventDefault();
-      moveTopicUp(topic.id);
+      doc.moveTopicUp(topic.id);
     } else if (e.altKey && e.key === 'ArrowDown') {
       e.preventDefault();
-      moveTopicDown(topic.id);
+      doc.moveTopicDown(topic.id);
     } else if (e.altKey && e.key === 'ArrowLeft') {
       e.preventDefault();
-      promoteTopic(topic.id);
+      doc.promoteTopic(topic.id);
     } else if (e.altKey && e.key === 'ArrowRight') {
       e.preventDefault();
-      demoteTopic(topic.id);
+      doc.demoteTopic(topic.id);
     }
   };
 
@@ -137,7 +126,7 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            if (hasChildren) toggleCollapse(topic.id);
+            if (hasChildren) doc.toggleCollapse(topic.id);
           }}
         >
           {hasChildren && (isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />)}
@@ -175,6 +164,11 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
           <span className="w-2 h-2 bg-amber-400 rounded-sm flex-shrink-0" title="메모 있음" />
         )}
 
+        {/* Hyperlink indicator */}
+        {topic.hyperlink && (
+          <span className="text-[10px] flex-shrink-0" title={topic.hyperlink}>🔗</span>
+        )}
+
         {/* Actions (visible on hover) */}
         <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
           <button
@@ -182,9 +176,9 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
             title="하위 토픽 추가"
             onClick={(e) => {
               e.stopPropagation();
-              const newId = addChildTopic(topic.id);
-              selectTopic(newId);
-              setTimeout(() => startEditing(newId), 50);
+              const newId = doc.addChildTopic(topic.id);
+              ui.selectTopic(newId);
+              setTimeout(() => ui.startEditing(newId), 50);
             }}
           >
             <Plus size={12} />
@@ -195,7 +189,7 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
               title="삭제"
               onClick={(e) => {
                 e.stopPropagation();
-                deleteTopic(topic.id);
+                doc.deleteTopic(topic.id);
               }}
             >
               <Trash2 size={12} />
@@ -211,4 +205,4 @@ export function OutlinerItem({ topic, depth, isRoot = false }: OutlinerItemProps
         ))}
     </div>
   );
-}
+});

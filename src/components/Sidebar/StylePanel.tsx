@@ -1,24 +1,12 @@
 import { useUIStore } from '../../store/uiStore';
 import { useDocumentStore } from '../../store/documentStore';
-import type { Topic, TopicStyle, BorderStyle } from '../../model/types';
+import type { TopicStyle, BorderStyle } from '../../model/types';
+import { findTopicById } from '../../utils/topicLookup';
 import { ShapeSelector } from './controls/ShapeSelector';
 import { ColorPicker } from './controls/ColorPicker';
 import { FontControls } from './controls/FontControls';
 import { LineStylePicker } from './controls/LineStylePicker';
 import { MarkerPicker } from './controls/MarkerPicker';
-
-function findTopicById(root: Topic, id: string): Topic | null {
-  if (root.id === id) return root;
-  for (const child of root.children.attached) {
-    const found = findTopicById(child, id);
-    if (found) return found;
-  }
-  for (const child of root.children.detached) {
-    const found = findTopicById(child, id);
-    if (found) return found;
-  }
-  return null;
-}
 
 const BORDER_STYLES: { key: BorderStyle; label: string }[] = [
   { key: 'solid', label: 'Solid' },

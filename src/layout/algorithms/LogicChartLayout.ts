@@ -16,6 +16,7 @@ export function logicChartLayout(
   rootTopic: Topic,
   measure: MeasureContext,
 ): LayoutResult {
+  heightCache.clear();
   const nodes = new Map<string, LayoutNode>();
 
   // Step 1: Build layout tree with measured sizes
@@ -85,16 +86,26 @@ function markDirection(node: LayoutNode): void {
   }
 }
 
+const heightCache = new Map<string, number>();
+
 function getSubtreeHeight(node: LayoutNode): number {
-  if (node.children.length === 0) return node.height;
+  const cached = heightCache.get(node.id);
+  if (cached !== undefined) return cached;
 
-  let childrenTotalHeight = 0;
-  for (const child of node.children) {
-    childrenTotalHeight += getSubtreeHeight(child);
+  let result: number;
+  if (node.children.length === 0) {
+    result = node.height;
+  } else {
+    let childrenTotalHeight = 0;
+    for (const child of node.children) {
+      childrenTotalHeight += getSubtreeHeight(child);
+    }
+    childrenTotalHeight += (node.children.length - 1) * VERTICAL_GAP;
+    result = Math.max(node.height, childrenTotalHeight);
   }
-  childrenTotalHeight += (node.children.length - 1) * VERTICAL_GAP;
 
-  return Math.max(node.height, childrenTotalHeight);
+  heightCache.set(node.id, result);
+  return result;
 }
 
 function computeChildrenTotalHeight(node: LayoutNode): number {
