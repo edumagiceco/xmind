@@ -95,6 +95,8 @@ export type TopicShape =
 export type LineStyle = 'curved' | 'straight' | 'angular' | 'elbow';
 export type BorderStyle = 'solid' | 'dashed' | 'dotted' | 'none';
 
+export type TextAlign = 'left' | 'center' | 'right';
+
 export interface TopicStyle {
   fillColor?: string;
   borderColor?: string;
@@ -108,6 +110,9 @@ export interface TopicStyle {
   fontSize?: number;
   fontColor?: string;
   fontWeight?: 'normal' | 'bold';
+  fontStyle?: 'normal' | 'italic';
+  textDecoration?: 'none' | 'underline' | 'line-through' | 'underline line-through';
+  textAlign?: TextAlign;
 }
 
 export interface Marker {

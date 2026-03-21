@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 import { produce } from 'immer';
-import type { Workbook, Sheet, Topic, TopicStyle, StructureType, MapSettings } from '../model/types';
+import type { Workbook, Sheet, Topic, TopicStyle, StructureType, MapSettings, ImageAttachment } from '../model/types';
 import { createWorkbook, createSheet, createTopic } from '../model/types';
 import { generateId } from '../utils/id';
 
@@ -136,6 +136,7 @@ export interface DocumentState {
   updateTopicNotes: (topicId: string, text: string) => void;
   toggleMarker: (topicId: string, groupId: string, markerId: string) => void;
   updateTopicHyperlink: (topicId: string, url: string | undefined) => void;
+  updateTopicImage: (topicId: string, image: ImageAttachment | undefined) => void;
 
   addRelationship: (startTopicId: string, endTopicId: string) => void;
   removeRelationship: (relationshipId: string) => void;
@@ -524,6 +525,17 @@ export const useDocumentStore = create<DocumentState>()(
             const sheet = getSheet(draft, state.activeSheetId);
             const result = findTopic(sheet.rootTopic, topicId);
             if (result) result[0].hyperlink = url?.trim() || undefined;
+            touch(draft);
+          }),
+          isDirty: true,
+        })),
+
+      updateTopicImage: (topicId: string, image: ImageAttachment | undefined) =>
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, topicId);
+            if (result) result[0].image = image;
             touch(draft);
           }),
           isDirty: true,

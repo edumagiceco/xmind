@@ -6,6 +6,7 @@ import { useUIStore } from '../../store/uiStore';
 import { saveFile, openFile } from '../../services/tauriBridge';
 import type { LayoutResult } from '../../layout/types';
 import type { Topic } from '../../model/types';
+import { pasteImageFromClipboard } from '../../utils/imagePicker';
 
 export function MindMapCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -13,7 +14,7 @@ export function MindMapCanvas() {
   const layoutRef = useRef<LayoutResult | null>(null);
   const dropTargetRef = useRef<{ targetId: string; position: 'child' | 'before' | 'after' } | null>(null);
   const isDraggingRef = useRef(false);
-  const editInputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [editInput, setEditInput] = useState<{
     topicId: string;
@@ -504,10 +505,20 @@ export function MindMapCanvas() {
           }
         }
         if (e.key === 'v' || e.key === 'V') {
-          if (selected && ui.clipboard && !e.shiftKey) {
+          if (selected && !e.shiftKey) {
+            if (ui.clipboard) {
+              e.preventDefault();
+              const newId = useDocumentStore.getState().pasteTopic(selected, ui.clipboard);
+              ui.selectTopic(newId);
+              return;
+            }
+            // No topic clipboard — try pasting image from system clipboard
             e.preventDefault();
-            const newId = useDocumentStore.getState().pasteTopic(selected, ui.clipboard);
-            ui.selectTopic(newId);
+            pasteImageFromClipboard().then((img) => {
+              if (img) {
+                useDocumentStore.getState().updateTopicImage(selected, img);
+              }
+            });
             return;
           }
         }
@@ -541,6 +552,23 @@ export function MindMapCanvas() {
         case 'Delete':
         case 'Backspace': {
           e.preventDefault();
+          // If single node selected and it has an image, delete the image first
+          if (ui.selectedTopicIds.length === 1) {
+            const rootTopic = doc.getRootTopic();
+            const findT = (root: Topic, id: string): Topic | null => {
+              if (root.id === id) return root;
+              for (const c of root.children.attached) {
+                const r = findT(c, id);
+                if (r) return r;
+              }
+              return null;
+            };
+            const topic = findT(rootTopic, selected);
+            if (topic?.image) {
+              doc.updateTopicImage(selected, undefined);
+              break;
+            }
+          }
           let nextId: string | null;
           if (ui.selectedTopicIds.length > 1) {
             nextId = doc.deleteTopics(ui.selectedTopicIds);
@@ -639,8 +667,20 @@ export function MindMapCanvas() {
   }, [editInput]);
 
   const handleEditKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        // Cmd+Enter: insert newline
+        e.preventDefault();
+        const textarea = e.currentTarget;
+        const { selectionStart, selectionEnd } = textarea;
+        const val = editInput!.value;
+        const newValue = val.substring(0, selectionStart) + '\n' + val.substring(selectionEnd);
+        setEditInput({ ...editInput!, value: newValue });
+        // Restore cursor position after state update
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+        });
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         handleEditSubmit();
       } else if (e.key === 'Escape') {
@@ -649,7 +689,7 @@ export function MindMapCanvas() {
       }
       e.stopPropagation();
     },
-    [handleEditSubmit],
+    [handleEditSubmit, editInput],
   );
 
   return (
@@ -665,23 +705,23 @@ export function MindMapCanvas() {
         tabIndex={0}
       />
       {editInput && (
-        <input
+        <textarea
           ref={editInputRef}
-          type="text"
           autoFocus
           value={editInput.value}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setEditInput({ ...editInput, value: e.target.value })}
           onBlur={handleEditSubmit}
           onKeyDown={handleEditKeyDown}
-          className="absolute border-2 border-blue-500 rounded-lg px-2 outline-none bg-white text-center"
+          rows={Math.max(editInput.value.split('\n').length, 1)}
+          className="absolute border-2 border-blue-500 rounded-lg px-2 py-1 outline-none bg-white text-center resize-none"
           style={{
             left: editInput.x,
             top: editInput.y,
             width: Math.max(editInput.width, 120),
-            height: editInput.height,
+            minHeight: editInput.height,
             fontSize: `${14 * camera.zoom}px`,
-            lineHeight: `${editInput.height}px`,
+            lineHeight: '1.4',
           }}
         />
       )}

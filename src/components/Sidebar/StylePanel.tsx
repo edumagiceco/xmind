@@ -1,7 +1,9 @@
+import { ImagePlus, Trash2 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { useDocumentStore } from '../../store/documentStore';
 import type { TopicStyle, BorderStyle } from '../../model/types';
 import { findTopicById } from '../../utils/topicLookup';
+import { pickImage } from '../../utils/imagePicker';
 import { ShapeSelector } from './controls/ShapeSelector';
 import { ColorPicker } from './controls/ColorPicker';
 import { FontControls } from './controls/FontControls';
@@ -23,6 +25,7 @@ export function StylePanel() {
   const updateTopicStyle = useDocumentStore((s) => s.updateTopicStyle);
   const toggleMarker = useDocumentStore((s) => s.toggleMarker);
   const updateTopicHyperlink = useDocumentStore((s) => s.updateTopicHyperlink);
+  const updateTopicImage = useDocumentStore((s) => s.updateTopicImage);
 
   const topicId = selectedTopicIds[0];
   const topic = topicId ? findTopicById(rootTopic, topicId) : null;
@@ -42,6 +45,45 @@ export function StylePanel() {
     <div>
       <Section title="Shape">
         <ShapeSelector value={style.shape} onChange={(shape) => update({ shape })} />
+      </Section>
+
+      <Section title="Image">
+        {topic.image ? (
+          <div className="space-y-2">
+            <div className="rounded border border-gray-200 overflow-hidden bg-gray-50">
+              <img
+                src={topic.image.src}
+                alt=""
+                className="max-w-full max-h-32 mx-auto block"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-gray-400">
+                {topic.image.width} x {topic.image.height}
+              </span>
+              <button
+                type="button"
+                onClick={() => updateTopicImage(topic.id, undefined)}
+                className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50"
+              >
+                <Trash2 size={10} />
+                삭제
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={async () => {
+              const img = await pickImage();
+              if (img) updateTopicImage(topic.id, img);
+            }}
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 py-3 rounded border border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <ImagePlus size={14} />
+            이미지 추가
+          </button>
+        )}
       </Section>
 
       <Section title="Fill Color">

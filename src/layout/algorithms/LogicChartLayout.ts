@@ -1,5 +1,6 @@
 import type { Topic, LayoutNode } from '../../model/types';
 import type { LayoutResult, MeasureContext } from '../types';
+import { getImageLayoutHeight, getImageMinWidth } from '../imageSize';
 
 const HORIZONTAL_GAP = 60;
 const VERTICAL_GAP = 16;
@@ -75,8 +76,10 @@ function buildLayoutTree(
   const fontWeight = depth === 0 ? 'bold' : 'normal';
   const textSize = measure.measureText(topic.title, fontSize, fontWeight);
 
-  const width = Math.max(textSize.width + NODE_PADDING_X * 2, MIN_NODE_WIDTH);
-  const height = Math.max(textSize.height + NODE_PADDING_Y * 2, MIN_NODE_HEIGHT);
+  const imgMinW = getImageMinWidth(topic, NODE_PADDING_X);
+  const width = Math.max(textSize.width + NODE_PADDING_X * 2, MIN_NODE_WIDTH, imgMinW);
+  const imageHeight = getImageLayoutHeight(topic, width, NODE_PADDING_X);
+  const height = Math.max(textSize.height + imageHeight + NODE_PADDING_Y * 2, MIN_NODE_HEIGHT);
 
   const node: LayoutNode = {
     id: topic.id,

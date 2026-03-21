@@ -26,6 +26,10 @@ export class CanvasRenderer {
   private viewportBounds = { minX: -1e9, minY: -1e9, maxX: 1e9, maxY: 1e9 };
   private needsRender = true;
 
+  // Image cache
+  private imageCache = new Map<string, HTMLImageElement>();
+  private pendingImages = new Set<string>();
+
   // Drag state
   private dragId: string | null = null;
   private dragWorldX = 0;
@@ -424,6 +428,9 @@ export class CanvasRenderer {
 
     this.renderNodeShape(node, style, isSelected, isHovered);
 
+    // Render image if present
+    this.renderNodeImage(node);
+
     // Render text (skip if editing — the overlay input handles text)
     if (!isEditing) {
       this.renderNodeText(node, style);
@@ -579,19 +586,111 @@ export class CanvasRenderer {
     const { ctx } = this;
     const fontSize = style.fontSize ?? 14;
     const fontWeight = style.fontWeight ?? 'normal';
+    const fontStyle = style.fontStyle ?? 'normal';
     const fontFamily = style.fontFamily ?? '-apple-system, BlinkMacSystemFont, sans-serif';
+    const textAlign = style.textAlign ?? 'center';
+    const textDecoration = style.textDecoration ?? 'none';
 
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
     ctx.fillStyle = style.fontColor ?? '#1a1a1a';
-    ctx.textAlign = 'center';
+    ctx.textAlign = textAlign;
     ctx.textBaseline = 'middle';
 
-    ctx.fillText(
-      node.topic.title,
-      node.x + node.width / 2,
-      node.y + node.height / 2,
-      node.width - 16,
-    );
+    // Compute text X based on alignment
+    const padding = 8;
+    let textX: number;
+    const maxWidth = node.width - padding * 2;
+    if (textAlign === 'left') {
+      textX = node.x + padding;
+    } else if (textAlign === 'right') {
+      textX = node.x + node.width - padding;
+    } else {
+      textX = node.x + node.width / 2;
+    }
+
+    // If node has an image, shift text below it
+    let imageHeight = 0;
+    if (node.topic.image) {
+      const imgMaxW = Math.min(300, maxWidth);
+      const displayW = Math.min(node.topic.image.width, imgMaxW);
+      imageHeight = displayW * (node.topic.image.height / node.topic.image.width) + 6;
+    }
+    // Split text into lines
+    const lines = node.topic.title.split('\n');
+    const lineHeight = fontSize * 1.4;
+    const totalTextHeight = lines.length * lineHeight;
+    const textBlockTop = node.y + imageHeight + (node.height - imageHeight - totalTextHeight) / 2 + lineHeight / 2;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineY = textBlockTop + i * lineHeight;
+      ctx.fillText(lines[i], textX, lineY, maxWidth);
+
+      // Draw underline and/or strikethrough per line
+      if (textDecoration !== 'none') {
+        const measured = ctx.measureText(lines[i]);
+        const textWidth = Math.min(measured.width, maxWidth);
+
+        let lineStartX: number;
+        if (textAlign === 'left') {
+          lineStartX = textX;
+        } else if (textAlign === 'right') {
+          lineStartX = textX - textWidth;
+        } else {
+          lineStartX = textX - textWidth / 2;
+        }
+
+        ctx.strokeStyle = style.fontColor ?? '#1a1a1a';
+        ctx.lineWidth = Math.max(1, fontSize / 14);
+
+        if (textDecoration.includes('underline')) {
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, lineY + fontSize * 0.4);
+          ctx.lineTo(lineStartX + textWidth, lineY + fontSize * 0.4);
+          ctx.stroke();
+        }
+        if (textDecoration.includes('line-through')) {
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, lineY);
+          ctx.lineTo(lineStartX + textWidth, lineY);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  private renderNodeImage(node: LayoutNode) {
+    if (!node.topic.image) return;
+    const img = this.getOrLoadImage(node.topic.image.src);
+    if (!img) return;
+
+    const padding = 8;
+    const maxW = Math.min(300, node.width - padding * 2);
+    const displayW = Math.min(node.topic.image.width, maxW);
+    const displayH = displayW * (node.topic.image.height / node.topic.image.width);
+
+    const imgX = node.x + (node.width - displayW) / 2;
+    const imgY = node.y + 10; // NODE_PADDING_Y
+
+    this.ctx.drawImage(img, imgX, imgY, displayW, displayH);
+  }
+
+  private getOrLoadImage(src: string): HTMLImageElement | null {
+    const cached = this.imageCache.get(src);
+    if (cached) return cached;
+    if (this.pendingImages.has(src)) return null;
+
+    this.pendingImages.add(src);
+    const img = new Image();
+    img.onload = () => {
+      this.imageCache.set(src, img);
+      this.pendingImages.delete(src);
+      this.needsRender = true;
+    };
+    img.onerror = () => {
+      this.pendingImages.delete(src);
+    };
+    img.src = src;
+    return null;
   }
 
   private renderCollapseIndicator(node: LayoutNode, style: TopicStyle, isCollapsed: boolean, isHovered: boolean) {
@@ -1043,14 +1142,19 @@ export class CanvasRenderer {
     return null;
   }
 
-  /** Measure text for layout engine */
+  /** Measure text for layout engine (supports multiline) */
   measureText(text: string, fontSize: number, fontWeight: string): { width: number; height: number } {
     const fontFamily = '-apple-system, BlinkMacSystemFont, sans-serif';
     this.ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    const metrics = this.ctx.measureText(text);
+    const lines = text.split('\n');
+    let maxWidth = 0;
+    for (const line of lines) {
+      const w = this.ctx.measureText(line).width;
+      if (w > maxWidth) maxWidth = w;
+    }
     return {
-      width: metrics.width,
-      height: fontSize * 1.4,
+      width: maxWidth,
+      height: fontSize * 1.4 * lines.length,
     };
   }
 

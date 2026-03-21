@@ -151,7 +151,7 @@ function topicToXMind(topic: Topic, structure?: string): XMindTopic {
   // Image
   if (topic.image) {
     xtopic.image = topic.image;
-  } else if (!raw.image) {
+  } else {
     delete xtopic.image;
   }
 
