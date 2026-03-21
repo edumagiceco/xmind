@@ -33,6 +33,9 @@ export interface UIState {
   isDragging: boolean;
   isPanning: boolean;
 
+  // Dark mode
+  darkMode: 'system' | 'light' | 'dark';
+
   // Actions
   setCamera: (camera: { x: number; y: number; zoom: number }) => void;
   pan: (dx: number, dy: number) => void;
@@ -59,6 +62,9 @@ export interface UIState {
 
   setSidebarTab: (tab: 'style' | 'map' | 'notes') => void;
   toggleSidebar: () => void;
+
+  setDarkMode: (mode: 'system' | 'light' | 'dark') => void;
+  toggleDarkMode: () => void;
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -73,6 +79,7 @@ export const useUIStore = create<UIState>()((set) => ({
   isZenMode: false,
   isDragging: false,
   isPanning: false,
+  darkMode: 'system' as const,
 
   setCamera: (camera) => set({ camera }),
 
@@ -137,4 +144,12 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setSidebarTab: (tab) => set({ sidebarTab: tab }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  setDarkMode: (mode) => set({ darkMode: mode }),
+  toggleDarkMode: () =>
+    set((state) => {
+      const order: Array<'system' | 'light' | 'dark'> = ['system', 'light', 'dark'];
+      const idx = order.indexOf(state.darkMode);
+      return { darkMode: order[(idx + 1) % 3] };
+    }),
 }));

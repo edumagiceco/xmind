@@ -88,13 +88,13 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
     <div className="relative">
       {/* Trigger: color swatch button */}
       <div className="flex items-center gap-2">
-        {label && <p className="text-[10px] text-gray-400">{label}</p>}
+        {label && <p className="text-[10px] text-gray-400 dark:text-gray-500">{label}</p>}
         <button
           ref={triggerRef}
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`w-7 h-7 rounded border-2 flex items-center justify-center transition-shadow ${
-            isOpen ? 'border-blue-500 shadow-sm' : 'border-gray-300 hover:border-gray-400'
+            isOpen ? 'border-blue-500 shadow-sm' : 'border-gray-300 dark:border-gray-500 hover:border-gray-400'
           }`}
           style={{ backgroundColor: displayColor ?? '#ffffff' }}
           title={displayColor ?? 'None'}
@@ -102,7 +102,7 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
           {isNone && <X size={12} className="text-gray-400" />}
         </button>
         {displayColor && (
-          <span className="text-[10px] text-gray-500 font-mono">{displayColor}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{displayColor}</span>
         )}
       </div>
 
@@ -110,7 +110,7 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
       {isOpen && (
         <div
           ref={popupRef}
-          className="absolute left-0 top-9 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-[232px]"
+          className="absolute left-0 top-9 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 p-3 w-[232px]"
         >
           {/* Color grid */}
           <div className="grid grid-cols-8 gap-1 mb-2.5">
@@ -121,8 +121,8 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
                 onClick={() => selectColor(color)}
                 className={`w-6 h-6 rounded-sm border transition-transform hover:scale-110 ${
                   value === color
-                    ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-1'
-                    : 'border-gray-200'
+                    ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-800'
+                    : 'border-gray-200 dark:border-gray-600'
                 }`}
                 style={{ backgroundColor: color }}
                 title={color}
@@ -131,21 +131,21 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
           </div>
 
           {/* None + Hex input row */}
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
             <button
               type="button"
               onClick={() => selectColor('transparent')}
               className={`w-7 h-7 rounded border flex items-center justify-center flex-shrink-0 ${
                 isNone
                   ? 'border-blue-500 ring-1 ring-blue-500'
-                  : 'border-gray-300 hover:border-gray-400'
+                  : 'border-gray-300 dark:border-gray-500 hover:border-gray-400'
               }`}
               title="None"
             >
               <X size={12} className="text-gray-400" />
             </button>
             <div
-              className="w-7 h-7 rounded border border-gray-300 flex-shrink-0"
+              className="w-7 h-7 rounded border border-gray-300 dark:border-gray-500 flex-shrink-0"
               style={{ backgroundColor: displayColor ?? '#ffffff' }}
             />
             <input
@@ -155,7 +155,7 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
               onBlur={handleHexBlur}
               placeholder="000000"
               maxLength={7}
-              className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400 font-mono w-0"
+              className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 font-mono w-0"
             />
           </div>
         </div>

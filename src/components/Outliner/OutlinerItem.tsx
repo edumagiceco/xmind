@@ -136,8 +136,8 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
       <div
         className={`flex items-center gap-1 py-0.5 px-2 cursor-pointer rounded-sm group ${
           isSelected
-            ? 'bg-blue-50 border-l-2 border-blue-500'
-            : 'hover:bg-gray-100 border-l-2 border-transparent'
+            ? 'bg-blue-50 dark:bg-blue-900/30 border-l-2 border-blue-500'
+            : 'hover:bg-gray-100 dark:hover:bg-gray-700 border-l-2 border-transparent'
         }`}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={handleClick}
@@ -148,7 +148,7 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
         {/* Collapse toggle */}
         <button
           className={`w-4 h-4 flex items-center justify-center flex-shrink-0 ${
-            hasChildren ? 'text-gray-400 hover:text-gray-600' : 'invisible'
+            hasChildren ? 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300' : 'invisible'
           }`}
           onClick={(e) => {
             e.stopPropagation();
@@ -173,12 +173,12 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleEditSubmit}
             onKeyDown={handleKeyDown}
-            className="flex-1 text-sm px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
+            className="flex-1 text-sm px-1 py-0.5 border border-blue-400 dark:border-blue-500 rounded outline-none bg-white dark:bg-gray-800 min-w-0"
           />
         ) : (
           <span
             className={`flex-1 text-sm truncate ${
-              depth === 0 ? 'font-semibold text-gray-800' : 'text-gray-700'
+              depth === 0 ? 'font-semibold text-gray-800 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'
             }`}
           >
             {topic.title}
@@ -198,7 +198,7 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
         {/* Actions (visible on hover) */}
         <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
           <button
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             title="하위 토픽 추가"
             onClick={(e) => {
               e.stopPropagation();
@@ -211,7 +211,7 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
           </button>
           {!isRoot && (
             <button
-              className="p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500"
+              className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400"
               title="삭제"
               onClick={(e) => {
                 e.stopPropagation();

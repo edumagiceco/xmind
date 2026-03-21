@@ -57,8 +57,30 @@ function App() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const isZenMode = useUIStore((s) => s.isZenMode);
   const viewMode = useUIStore((s) => s.viewMode);
+  const darkMode = useUIStore((s) => s.darkMode);
   const [showSearch, setShowSearch] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+
+  // Apply dark mode class to <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    const applyDark = (isDark: boolean) => {
+      root.classList.toggle('dark', isDark);
+    };
+
+    if (darkMode === 'dark') {
+      applyDark(true);
+    } else if (darkMode === 'light') {
+      applyDark(false);
+    } else {
+      // system
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      applyDark(mq.matches);
+      const handler = (e: MediaQueryListEvent) => applyDark(e.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [darkMode]);
 
   // Global keyboard shortcuts for search and command palette
   const handleGlobalKeys = useCallback((e: KeyboardEvent) => {

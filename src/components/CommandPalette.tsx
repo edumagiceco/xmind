@@ -138,11 +138,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20" onClick={onClose}>
       <div
-        className="bg-white border border-gray-300 rounded-xl shadow-2xl w-[420px] max-h-[400px] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 rounded-xl shadow-2xl w-[420px] max-h-[400px] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
-          <Search size={16} className="text-gray-400" />
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+          <Search size={16} className="text-gray-400 dark:text-gray-500" />
           <input
             ref={inputRef}
             type="text"
@@ -155,13 +155,13 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         </div>
         <div ref={listRef} className="overflow-y-auto py-1">
           {filtered.length === 0 && (
-            <div className="text-sm text-gray-400 text-center py-6">결과 없음</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">결과 없음</div>
           )}
           {filtered.map((cmd, idx) => (
             <button
               key={cmd.id}
               className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-colors ${
-                idx === selectedIdx ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
+                idx === selectedIdx ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200'
               }`}
               onClick={() => {
                 cmd.action();
@@ -170,11 +170,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
               onMouseEnter={() => setSelectedIdx(idx)}
             >
               <div>
-                <span className="text-[10px] text-gray-400 mr-2">{cmd.category}</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 mr-2">{cmd.category}</span>
                 {cmd.label}
               </div>
               {cmd.shortcut && (
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{cmd.shortcut}</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{cmd.shortcut}</span>
               )}
             </button>
           ))}

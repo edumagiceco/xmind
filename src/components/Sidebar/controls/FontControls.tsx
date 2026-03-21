@@ -39,8 +39,8 @@ function ToggleButton({
       title={title}
       className={`w-8 h-8 flex items-center justify-center rounded border ${
         active
-          ? 'border-blue-500 bg-blue-50 text-blue-600'
-          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
       }`}
     >
       {children}
@@ -73,11 +73,11 @@ export function FontControls({ style, onChange }: FontControlsProps) {
     <div className="space-y-2.5">
       {/* Font family */}
       <div>
-        <p className="text-[10px] text-gray-400 mb-1">Font Family</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Font Family</p>
         <select
           value={style.fontFamily ?? ''}
           onChange={(e) => onChange({ fontFamily: e.target.value || undefined })}
-          className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400"
+          className="w-full text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500"
         >
           {FONT_FAMILIES.map((f) => (
             <option key={f.value} value={f.value}>
@@ -90,11 +90,11 @@ export function FontControls({ style, onChange }: FontControlsProps) {
       {/* Font size + Bold/Italic row */}
       <div className="flex items-center gap-2">
         <div className="flex-1">
-          <p className="text-[10px] text-gray-400 mb-1">Size</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Size</p>
           <select
             value={style.fontSize ?? 14}
             onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400"
+            className="w-full text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500"
           >
             {FONT_SIZES.map((s) => (
               <option key={s} value={s}>
@@ -107,7 +107,7 @@ export function FontControls({ style, onChange }: FontControlsProps) {
 
       {/* Text formatting toggles */}
       <div>
-        <p className="text-[10px] text-gray-400 mb-1">Style</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Style</p>
         <div className="flex items-center gap-1">
           <ToggleButton
             active={style.fontWeight === 'bold'}
@@ -142,7 +142,7 @@ export function FontControls({ style, onChange }: FontControlsProps) {
 
       {/* Text alignment */}
       <div>
-        <p className="text-[10px] text-gray-400 mb-1">Align</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Align</p>
         <div className="flex items-center gap-1">
           {([
             { value: 'left' as TextAlign, icon: AlignLeft, label: 'Left' },
@@ -163,7 +163,7 @@ export function FontControls({ style, onChange }: FontControlsProps) {
 
       {/* Font color */}
       <div>
-        <p className="text-[10px] text-gray-400 mb-1">Color</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Color</p>
         <ColorPicker
           value={style.fontColor}
           onChange={(color) => onChange({ fontColor: color })}

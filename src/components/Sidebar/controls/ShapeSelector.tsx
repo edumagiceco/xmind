@@ -16,7 +16,7 @@ const SHAPES: { key: TopicShape; label: string }[] = [
 ];
 
 function ShapePreview({ shape }: { shape: TopicShape }) {
-  const base = 'w-full h-full border-2 border-gray-400';
+  const base = 'w-full h-full border-2 border-gray-400 dark:border-gray-500';
 
   switch (shape) {
     case 'rounded-rect':
@@ -62,15 +62,15 @@ export function ShapeSelector({ value, onChange }: ShapeSelectorProps) {
           onClick={() => onChange(key)}
           className={`flex flex-col items-center gap-1 p-1.5 rounded border ${
             value === key
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
           }`}
           title={label}
         >
           <div className="w-10 h-6">
             <ShapePreview shape={key} />
           </div>
-          <span className="text-[10px] text-gray-500 leading-none">{label}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none">{label}</span>
         </button>
       ))}
     </div>

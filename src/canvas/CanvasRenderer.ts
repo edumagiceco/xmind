@@ -270,7 +270,9 @@ export class CanvasRenderer {
     // Clear
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(this.dpr, this.dpr);
-    const bgColor = this.mapSettings?.backgroundColor || theme.canvas.backgroundColor || '#f5f5f5';
+    const isDark = document.documentElement.classList.contains('dark');
+    const defaultBg = isDark ? '#1e1e1e' : '#f5f5f5';
+    const bgColor = this.mapSettings?.backgroundColor || theme.canvas.backgroundColor || defaultBg;
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, cw, ch);
 

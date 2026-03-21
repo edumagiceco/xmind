@@ -767,7 +767,7 @@ export function MindMapCanvas() {
             onBlur={handleEditSubmit}
             onKeyDown={handleEditKeyDown}
             rows={Math.max(editInput.value.split('\n').length, 1)}
-            className="border-2 border-blue-500 rounded-lg px-2 py-0.5 outline-none bg-white text-center resize-none w-full"
+            className="border-2 border-blue-500 rounded-lg px-2 py-0.5 outline-none bg-white dark:bg-gray-800 text-center resize-none w-full"
             style={{
               fontSize: `${14 * camera.zoom}px`,
               lineHeight: '1.4',

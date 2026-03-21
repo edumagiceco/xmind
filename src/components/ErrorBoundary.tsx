@@ -26,14 +26,14 @@ export class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-600 p-8">
+        <div className="flex flex-col items-center justify-center h-full bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 p-8">
           <AlertTriangle size={48} className="text-amber-500 mb-4" />
           <h1 className="text-xl font-semibold mb-2">오류가 발생했습니다</h1>
-          <p className="text-sm text-gray-400 mb-4 max-w-md text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500 mb-4 max-w-md text-center">
             예기치 않은 오류가 발생했습니다. 아래 버튼을 클릭하여 앱을 복구하세요.
             작업 중이던 내용은 자동 저장되지 않았을 수 있습니다.
           </p>
-          <p className="text-xs text-gray-300 mb-6 font-mono max-w-md truncate">
+          <p className="text-xs text-gray-300 dark:text-gray-500 mb-6 font-mono max-w-md truncate">
             {this.state.error?.message}
           </p>
           <button

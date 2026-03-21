@@ -32,7 +32,7 @@ export function StylePanel() {
 
   if (!topic) {
     return (
-      <div className="text-sm text-gray-400 text-center mt-8 px-4">
+      <div className="text-sm text-gray-400 dark:text-gray-500 text-center mt-8 px-4">
         토픽을 선택하면 스타일을 편집할 수 있습니다.
       </div>
     );
@@ -55,7 +55,7 @@ export function StylePanel() {
       <Section title="Image">
         {topic.image ? (
           <div className="space-y-2">
-            <div className="rounded border border-gray-200 overflow-hidden bg-gray-50">
+            <div className="rounded border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900">
               <img
                 src={topic.image.src}
                 alt=""
@@ -63,7 +63,7 @@ export function StylePanel() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
                 {topic.image.width} x {topic.image.height}
               </span>
               <button
@@ -83,7 +83,7 @@ export function StylePanel() {
               const img = await pickImage();
               if (img) updateTopicImage(topic.id, img);
             }}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 py-3 rounded border border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 py-3 rounded border border-dashed border-gray-300 dark:border-gray-500 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
           >
             <ImagePlus size={14} />
             이미지 추가
@@ -103,7 +103,7 @@ export function StylePanel() {
             label="Color"
           />
           <div>
-            <p className="text-[10px] text-gray-400 mb-1">Style</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Style</p>
             <div className="flex gap-1.5">
               {BORDER_STYLES.map(({ key, label }) => (
                 <button
@@ -112,8 +112,8 @@ export function StylePanel() {
                   onClick={() => update({ borderStyle: key })}
                   className={`flex-1 text-[10px] py-1.5 rounded border ${
                     style.borderStyle === key
-                      ? 'border-blue-500 bg-blue-50 text-blue-600'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   {label}
@@ -122,7 +122,7 @@ export function StylePanel() {
             </div>
           </div>
           <div>
-            <p className="text-[10px] text-gray-400 mb-1">Width</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1">Width</p>
             <div className="flex gap-1.5">
               {BORDER_WIDTHS.map((w) => (
                 <button
@@ -131,8 +131,8 @@ export function StylePanel() {
                   onClick={() => update({ borderWidth: w })}
                   className={`flex-1 text-[10px] py-1.5 rounded border ${
                     style.borderWidth === w
-                      ? 'border-blue-500 bg-blue-50 text-blue-600'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   {w}
@@ -170,14 +170,14 @@ export function StylePanel() {
             placeholder="https://..."
             value={topic.hyperlink ?? ''}
             onChange={(e) => updateTopicHyperlink(topic.id, e.target.value || undefined)}
-            className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-blue-400 focus:outline-none bg-white min-w-0"
+            className="flex-1 text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded focus:border-blue-400 dark:focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 dark:text-gray-200 min-w-0"
           />
           {topic.hyperlink && (
             <a
               href={topic.hyperlink}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
+              className="px-2 py-1.5 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50"
             >
               열기
             </a>
@@ -190,8 +190,8 @@ export function StylePanel() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="px-4 py-3 border-b border-gray-100">
-      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">{title}</h3>
+    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+      <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{title}</h3>
       {children}
     </div>
   );

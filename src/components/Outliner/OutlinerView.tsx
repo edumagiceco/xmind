@@ -8,7 +8,7 @@ export function OutlinerView() {
 
   return (
     <div
-      className="w-full h-full overflow-auto bg-white"
+      className="w-full h-full overflow-auto bg-white dark:bg-gray-800"
       onClick={(e) => {
         if (e.target === e.currentTarget) clearSelection();
       }}

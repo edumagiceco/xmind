@@ -70,8 +70,8 @@ export function SearchBar({ onClose }: SearchBarProps) {
   };
 
   return (
-    <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-white border border-gray-300 rounded-lg shadow-lg px-3 py-1.5 min-w-[320px]">
-      <Search size={16} className="text-gray-400 flex-shrink-0" />
+    <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 rounded-lg shadow-lg px-3 py-1.5 min-w-[320px]">
+      <Search size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
       <input
         ref={inputRef}
         type="text"
@@ -82,7 +82,7 @@ export function SearchBar({ onClose }: SearchBarProps) {
         className="flex-1 text-sm outline-none bg-transparent px-1"
       />
       {matches.length > 0 && (
-        <span className="text-xs text-gray-400 flex-shrink-0">
+        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
           {currentIdx + 1}/{matches.length}
         </span>
       )}
@@ -90,21 +90,21 @@ export function SearchBar({ onClose }: SearchBarProps) {
         <span className="text-xs text-red-400 flex-shrink-0">없음</span>
       )}
       <button
-        className="p-0.5 rounded hover:bg-gray-100 text-gray-400"
+        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500"
         onClick={() => navigateTo(currentIdx - 1)}
         title="이전 (Shift+Enter)"
       >
         <ChevronUp size={14} />
       </button>
       <button
-        className="p-0.5 rounded hover:bg-gray-100 text-gray-400"
+        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500"
         onClick={() => navigateTo(currentIdx + 1)}
         title="다음 (Enter)"
       >
         <ChevronDown size={14} />
       </button>
       <button
-        className="p-0.5 rounded hover:bg-gray-100 text-gray-400"
+        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500"
         onClick={onClose}
         title="닫기 (Esc)"
       >

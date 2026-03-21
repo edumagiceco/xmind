@@ -4,6 +4,7 @@ import {
   Undo2, Redo2, FileDown, FolderOpen, FilePlus,
   PanelRight, Image, FileImage, Maximize, List, GitBranch,
   FileText, FileType, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  Moon, Sun, Monitor,
 } from 'lucide-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUIStore } from '../../store/uiStore';
@@ -17,6 +18,53 @@ function useFileName() {
   const isDirty = useDocumentStore((s) => s.isDirty);
   const name = filePath ? filePath.split('/').pop()!.replace(/\.xmind$/i, '') : 'Untitled';
   return isDirty ? `${name} *` : name;
+}
+
+function ToolbarButton({
+  icon,
+  title,
+  onClick,
+  disabled = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />;
+}
+
+function DarkModeToggle() {
+  const darkMode = useUIStore((s) => s.darkMode);
+  const icon =
+    darkMode === 'dark' ? <Moon size={18} /> :
+    darkMode === 'light' ? <Sun size={18} /> :
+    <Monitor size={18} />;
+  const label =
+    darkMode === 'dark' ? 'Dark Mode' :
+    darkMode === 'light' ? 'Light Mode' :
+    'System Mode';
+
+  return (
+    <ToolbarButton
+      icon={icon}
+      title={`${label} (click to cycle)`}
+      onClick={() => useUIStore.getState().toggleDarkMode()}
+    />
+  );
 }
 
 export function MainToolbar() {
@@ -137,33 +185,33 @@ export function MainToolbar() {
           onClick={() => setExportMenuOpen(!exportMenuOpen)}
         />
         {exportMenuOpen && (
-          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[160px]">
-            <div className="px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider">이미지</div>
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 py-1 min-w-[160px]">
+            <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">이미지</div>
             <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               onClick={() => handleExport('png')}
             >
               <FileImage size={14} />
               PNG 내보내기
             </button>
             <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               onClick={() => handleExport('svg')}
             >
               <FileImage size={14} />
               SVG 내보내기
             </button>
             <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               onClick={() => handleExport('pdf')}
             >
               <FileText size={14} />
               PDF 내보내기
             </button>
-            <div className="border-t border-gray-100 my-1" />
-            <div className="px-3 py-1 text-[10px] text-gray-400 uppercase tracking-wider">문서</div>
+            <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+            <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">문서</div>
             <button
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               onClick={() => handleExport('markdown')}
             >
               <FileType size={14} />
@@ -230,7 +278,7 @@ export function MainToolbar() {
       />
 
       <div className="flex-1 flex items-center justify-center">
-        <span className="text-sm text-gray-500 truncate max-w-[300px] select-none">{fileName}</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[300px] select-none">{fileName}</span>
       </div>
 
       {/* View mode toggle */}
@@ -242,40 +290,16 @@ export function MainToolbar() {
       <ToolbarButton icon={<Maximize size={18} />} title="Zen Mode (⌘⇧F)" onClick={() => useUIStore.getState().toggleZenMode()} />
       <ToolbarButton icon={<PanelRight size={18} />} title="Toggle Sidebar" onClick={toggleSidebar} />
 
+      <DarkModeToggle />
+
       <Divider />
 
       {/* Zoom controls */}
       <ToolbarButton icon={<ZoomOut size={18} />} title="Zoom Out" onClick={handleZoomOut} />
-      <span className="text-xs text-gray-500 w-12 text-center select-none">{zoomPercent}%</span>
+      <span className="text-xs text-gray-500 dark:text-gray-400 w-12 text-center select-none">{zoomPercent}%</span>
       <ToolbarButton icon={<ZoomIn size={18} />} title="Zoom In" onClick={handleZoomIn} />
       <ToolbarButton icon={<RotateCcw size={16} />} title="Reset View" onClick={resetView} />
     </div>
   );
 }
 
-function ToolbarButton({
-  icon,
-  title,
-  onClick,
-  disabled = false,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      className="p-1.5 rounded hover:bg-gray-100 active:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function Divider() {
-  return <div className="w-px h-6 bg-gray-200 mx-1" />;
-}
