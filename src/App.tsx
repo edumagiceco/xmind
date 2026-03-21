@@ -27,7 +27,7 @@ async function handleQuit() {
     const isDirty = useDocumentStore.getState().isDirty;
     if (isDirty) {
       const shouldSave = await ask('저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?', {
-        title: 'Magic Mind',
+        title: 'MAX Mind',
         kind: 'warning',
         okLabel: '저장',
         cancelLabel: '저장 안 함',
@@ -38,7 +38,7 @@ async function handleQuit() {
         } catch (e) {
           console.error('Save failed:', e);
           const forceQuit = await ask('저장에 실패했습니다. 그래도 종료하시겠습니까?', {
-            title: 'Magic Mind',
+            title: 'MAX Mind',
             kind: 'error',
             okLabel: '종료',
             cancelLabel: '취소',

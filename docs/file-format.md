@@ -1,8 +1,8 @@
-# Magic Mind 파일 포맷
+# MAX Mind 파일 포맷
 
 ## 개요
 
-Magic Mind는 `.xmind` 확장자의 ZIP 아카이브를 파일 포맷으로 사용한다.
+MAX Mind는 `.xmind` 확장자의 ZIP 아카이브를 파일 포맷으로 사용한다.
 XMind Zen 포맷과 호환을 목표로 한다.
 
 ## ZIP 아카이브 구조
@@ -46,7 +46,7 @@ document.xmind (ZIP)
     }
   ],
   "metadata": {
-    "creator": "Magic Mind",
+    "creator": "MAX Mind",
     "version": "1.0.0",
     "createdAt": "2026-03-17T00:00:00.000Z",
     "modifiedAt": "2026-03-17T00:00:00.000Z"

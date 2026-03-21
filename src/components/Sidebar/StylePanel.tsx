@@ -39,7 +39,12 @@ export function StylePanel() {
   }
 
   const style = topic.style ?? {};
-  const update = (partial: Partial<TopicStyle>) => updateTopicStyle(topic.id, partial);
+  // Apply style changes to ALL selected topics
+  const update = (partial: Partial<TopicStyle>) => {
+    for (const id of selectedTopicIds) {
+      updateTopicStyle(id, partial);
+    }
+  };
 
   return (
     <div>

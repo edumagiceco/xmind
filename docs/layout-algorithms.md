@@ -1,4 +1,4 @@
-# Magic Mind 레이아웃 알고리즘
+# MAX Mind 레이아웃 알고리즘
 
 ## 개요
 

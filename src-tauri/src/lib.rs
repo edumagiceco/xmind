@@ -31,7 +31,7 @@ pub fn run() {
             let save_as = MenuItemBuilder::with_id("save_as", "Save As...")
                 .accelerator("CmdOrCtrl+Shift+S")
                 .build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit Magic Mind")
+            let quit = MenuItemBuilder::with_id("quit", "Quit MAX Mind")
                 .accelerator("CmdOrCtrl+Q")
                 .build(app)?;
 
@@ -61,8 +61,8 @@ pub fn run() {
             let recent_submenu = recent_submenu.build()?;
 
             // App menu (macOS: first menu is the app name menu)
-            let app_menu = SubmenuBuilder::new(app, "Magic Mind")
-                .item(&PredefinedMenuItem::about(app, Some("About Magic Mind"), None)?)
+            let app_menu = SubmenuBuilder::new(app, "MAX Mind")
+                .item(&PredefinedMenuItem::about(app, Some("About MAX Mind"), None)?)
                 .separator()
                 .item(&PredefinedMenuItem::hide(app, None)?)
                 .item(&PredefinedMenuItem::hide_others(app, None)?)

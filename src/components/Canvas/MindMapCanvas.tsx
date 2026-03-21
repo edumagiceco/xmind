@@ -721,25 +721,32 @@ export function MindMapCanvas() {
         tabIndex={0}
       />
       {editInput && (
-        <textarea
-          ref={editInputRef}
-          autoFocus
-          value={editInput.value}
-          onFocus={(e) => e.currentTarget.select()}
-          onChange={(e) => setEditInput({ ...editInput, value: e.target.value })}
-          onBlur={handleEditSubmit}
-          onKeyDown={handleEditKeyDown}
-          rows={Math.max(editInput.value.split('\n').length, 1)}
-          className="absolute border-2 border-blue-500 rounded-lg px-2 py-1 outline-none bg-white text-center resize-none"
+        <div
+          className="absolute flex items-center justify-center"
           style={{
             left: editInput.x,
             top: editInput.y,
             width: Math.max(editInput.width, 120),
-            minHeight: editInput.height,
-            fontSize: `${14 * camera.zoom}px`,
-            lineHeight: '1.4',
+            height: editInput.height,
           }}
-        />
+        >
+          <textarea
+            ref={editInputRef}
+            autoFocus
+            value={editInput.value}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setEditInput({ ...editInput, value: e.target.value })}
+            onBlur={handleEditSubmit}
+            onKeyDown={handleEditKeyDown}
+            rows={Math.max(editInput.value.split('\n').length, 1)}
+            className="border-2 border-blue-500 rounded-lg px-2 py-0.5 outline-none bg-white text-center resize-none w-full"
+            style={{
+              fontSize: `${14 * camera.zoom}px`,
+              lineHeight: '1.4',
+              maxHeight: editInput.height,
+            }}
+          />
+        </div>
       )}
     </div>
   );

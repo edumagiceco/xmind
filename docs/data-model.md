@@ -1,4 +1,4 @@
-# Magic Mind 데이터 모델
+# MAX Mind 데이터 모델
 
 ## 핵심 타입 계층
 

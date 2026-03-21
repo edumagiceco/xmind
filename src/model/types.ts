@@ -243,7 +243,7 @@ export function createWorkbook(id: string, sheets: Sheet[]): Workbook {
     id,
     sheets,
     metadata: {
-      creator: 'Magic Mind',
+      creator: 'MAX Mind',
       version: '1.0.0',
       createdAt: now,
       modifiedAt: now,

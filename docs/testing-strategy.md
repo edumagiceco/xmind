@@ -1,4 +1,4 @@
-# Magic Mind 테스트 전략
+# MAX Mind 테스트 전략
 
 ## 테스트 레벨
 

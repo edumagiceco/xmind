@@ -52,26 +52,26 @@ export async function openFile() {
 
   const path = typeof selected === 'string' ? selected : (selected as unknown as string);
 
-  console.log('[Magic Mind] Opening file:', path);
+  console.log('[MAX Mind] Opening file:', path);
 
   try {
     const content = await invoke('open_file', { path });
-    console.log('[Magic Mind] File content loaded, type:', Array.isArray(content) ? 'array' : typeof content);
+    console.log('[MAX Mind] File content loaded, type:', Array.isArray(content) ? 'array' : typeof content);
     const workbook = xmindContentToWorkbook(content);
-    console.log('[Magic Mind] Workbook created, sheets:', workbook.sheets.length);
+    console.log('[MAX Mind] Workbook created, sheets:', workbook.sheets.length);
     useDocumentStore.getState().setWorkbook(workbook);
     useDocumentStore.getState().setCurrentFilePath(path);
 
     // Add to recent files
     try { await invoke('add_to_recent_files', { path }); } catch (_) {}
   } catch (e) {
-    console.error('[Magic Mind] Open file error:', e);
+    console.error('[MAX Mind] Open file error:', e);
     throw e;
   }
 }
 
 export async function openFileByPath(path: string) {
-  console.log('[Magic Mind] Opening recent file:', path);
+  console.log('[MAX Mind] Opening recent file:', path);
   try {
     const content = await invoke('open_file', { path });
     const workbook = xmindContentToWorkbook(content);
@@ -79,7 +79,7 @@ export async function openFileByPath(path: string) {
     useDocumentStore.getState().setCurrentFilePath(path);
     try { await invoke('add_to_recent_files', { path }); } catch (_) {}
   } catch (e) {
-    console.error('[Magic Mind] Open recent file error:', e);
+    console.error('[MAX Mind] Open recent file error:', e);
     throw e;
   }
 }
