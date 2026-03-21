@@ -13,7 +13,7 @@ import { useUIStore } from './store/uiStore';
 import { useDocumentStore } from './store/documentStore';
 import { openFile, openFileByPath, saveFile, newFile } from './services/tauriBridge';
 
-const isTauri = !!(window as unknown as { __TAURI__: unknown }).__TAURI__;
+const isTauri = !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
 
 async function exitApp() {
   if (isTauri) {

@@ -120,7 +120,7 @@ pub fn run() {
                     "save_as" => { let _ = app_handle.emit("menu-event", "save_as"); }
                     "undo" => { let _ = app_handle.emit("menu-event", "undo"); }
                     "redo" => { let _ = app_handle.emit("menu-event", "redo"); }
-                    "quit" => { app_handle.exit(0); }
+                    "quit" => { let _ = app_handle.emit("menu-event", "quit"); }
                     "clear_recent" => {
                         recent_files::clear_recent_files();
                         let _ = app_handle.emit("menu-event", "recent_cleared");
