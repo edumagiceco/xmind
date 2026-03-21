@@ -760,6 +760,7 @@ export function MindMapCanvas() {
           <textarea
             ref={editInputRef}
             autoFocus
+            lang="ko"
             value={editInput.value}
             onFocus={(e) => e.currentTarget.select()}
             onChange={(e) => setEditInput({ ...editInput, value: e.target.value })}
