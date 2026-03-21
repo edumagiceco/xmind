@@ -8,6 +8,10 @@ const getDocActions = () => {
     addChildTopic: s.addChildTopic,
     addSiblingTopic: s.addSiblingTopic,
     deleteTopic: s.deleteTopic,
+    deleteTopics: s.deleteTopics,
+    copyTopic: s.copyTopic,
+    cutTopic: s.cutTopic,
+    pasteTopic: s.pasteTopic,
     updateTopicTitle: s.updateTopicTitle,
     toggleCollapse: s.toggleCollapse,
     moveTopicUp: s.moveTopicUp,
@@ -21,8 +25,10 @@ const getUIActions = () => {
   const s = useUIStore.getState();
   return {
     selectTopic: s.selectTopic,
+    clearSelection: s.clearSelection,
     startEditing: s.startEditing,
     stopEditing: s.stopEditing,
+    setClipboard: s.setClipboard,
   };
 };
 

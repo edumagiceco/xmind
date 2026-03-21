@@ -1,4 +1,4 @@
-# MindForge 데이터 모델
+# Magic Mind 데이터 모델
 
 ## 핵심 타입 계층
 

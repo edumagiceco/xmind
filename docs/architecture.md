@@ -1,4 +1,4 @@
-# MindForge 아키텍처
+# Magic Mind 아키텍처
 
 > 최종 갱신: 2026-03-19 | Phase 2 (성능 최적화) 반영
 

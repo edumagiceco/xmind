@@ -11,7 +11,7 @@ import { SheetTabs } from './components/SheetTabs';
 import { CommandPalette } from './components/CommandPalette';
 import { useUIStore } from './store/uiStore';
 import { useDocumentStore } from './store/documentStore';
-import { openFile, saveFile, newFile } from './services/tauriBridge';
+import { openFile, openFileByPath, saveFile, newFile } from './services/tauriBridge';
 
 const isTauri = !!(window as unknown as { __TAURI__: unknown }).__TAURI__;
 
@@ -27,7 +27,7 @@ async function handleQuit() {
     const isDirty = useDocumentStore.getState().isDirty;
     if (isDirty) {
       const shouldSave = await ask('저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?', {
-        title: 'MindForge',
+        title: 'Magic Mind',
         kind: 'warning',
         okLabel: '저장',
         cancelLabel: '저장 안 함',
@@ -38,7 +38,7 @@ async function handleQuit() {
         } catch (e) {
           console.error('Save failed:', e);
           const forceQuit = await ask('저장에 실패했습니다. 그래도 종료하시겠습니까?', {
-            title: 'MindForge',
+            title: 'Magic Mind',
             kind: 'error',
             okLabel: '종료',
             cancelLabel: '취소',
@@ -111,6 +111,15 @@ function App() {
       }
     });
 
+    // Listen for recent file open events
+    const unlistenRecent = listen<string>('open-recent-file', (event) => {
+      const ui = useUIStore.getState();
+      openFileByPath(event.payload).then(() => {
+        ui.clearSelection();
+        ui.resetView();
+      }).catch((e) => { console.error(e); alert(`파일 열기 실패: ${e}`); });
+    });
+
     // Intercept window close button (X button) - Tauri only
     let unlistenClose: Promise<() => void> | null = null;
     if (isTauri) {
@@ -127,6 +136,7 @@ function App() {
 
     return () => {
       unlisten.then((fn) => fn());
+      unlistenRecent.then((fn) => fn());
       unlistenClose?.then((fn) => fn());
     };
   }, []);

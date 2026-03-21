@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[MindForge] Uncaught error:', error, errorInfo);
+    console.error('[Magic Mind] Uncaught error:', error, errorInfo);
   }
 
   render() {

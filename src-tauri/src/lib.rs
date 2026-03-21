@@ -1,4 +1,5 @@
 mod file_io;
+mod recent_files;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::Emitter;
@@ -30,7 +31,7 @@ pub fn run() {
             let save_as = MenuItemBuilder::with_id("save_as", "Save As...")
                 .accelerator("CmdOrCtrl+Shift+S")
                 .build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit MindForge")
+            let quit = MenuItemBuilder::with_id("quit", "Quit Magic Mind")
                 .accelerator("CmdOrCtrl+Q")
                 .build(app)?;
 
@@ -41,9 +42,27 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+Z")
                 .build(app)?;
 
+            // Recent files submenu
+            let recent_files = recent_files::load_recent_files();
+            let mut recent_submenu = SubmenuBuilder::new(app, "Open Recent");
+
+            for (i, rf) in recent_files.iter().enumerate() {
+                let item = MenuItemBuilder::with_id(format!("recent_{}", i), &rf.name)
+                    .build(app)?;
+                recent_submenu = recent_submenu.item(&item);
+            }
+
+            if !recent_files.is_empty() {
+                recent_submenu = recent_submenu.separator();
+            }
+            let clear_recent = MenuItemBuilder::with_id("clear_recent", "Clear Recent")
+                .build(app)?;
+            recent_submenu = recent_submenu.item(&clear_recent);
+            let recent_submenu = recent_submenu.build()?;
+
             // App menu (macOS: first menu is the app name menu)
-            let app_menu = SubmenuBuilder::new(app, "MindForge")
-                .item(&PredefinedMenuItem::about(app, Some("About MindForge"), None)?)
+            let app_menu = SubmenuBuilder::new(app, "Magic Mind")
+                .item(&PredefinedMenuItem::about(app, Some("About Magic Mind"), None)?)
                 .separator()
                 .item(&PredefinedMenuItem::hide(app, None)?)
                 .item(&PredefinedMenuItem::hide_others(app, None)?)
@@ -55,6 +74,7 @@ pub fn run() {
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_file)
                 .item(&open_file)
+                .item(&recent_submenu)
                 .separator()
                 .item(&save_file)
                 .item(&save_as)
@@ -86,6 +106,9 @@ pub fn run() {
 
             app.set_menu(menu)?;
 
+            // Store recent files paths for menu event lookup
+            let recent_paths: Vec<String> = recent_files.iter().map(|f| f.path.clone()).collect();
+
             // Handle menu events
             let app_handle = app.handle().clone();
             app.on_menu_event(move |_app, event| {
@@ -97,8 +120,20 @@ pub fn run() {
                     "save_as" => { let _ = app_handle.emit("menu-event", "save_as"); }
                     "undo" => { let _ = app_handle.emit("menu-event", "undo"); }
                     "redo" => { let _ = app_handle.emit("menu-event", "redo"); }
-                    "quit" => { let _ = app_handle.emit("menu-event", "quit"); }
-                    _ => {}
+                    "quit" => { app_handle.exit(0); }
+                    "clear_recent" => {
+                        recent_files::clear_recent_files();
+                        let _ = app_handle.emit("menu-event", "recent_cleared");
+                    }
+                    other => {
+                        if let Some(idx_str) = other.strip_prefix("recent_") {
+                            if let Ok(idx) = idx_str.parse::<usize>() {
+                                if let Some(path) = recent_paths.get(idx) {
+                                    let _ = app_handle.emit("open-recent-file", path.clone());
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -108,6 +143,9 @@ pub fn run() {
             file_io::save_file,
             file_io::open_file,
             file_io::new_file_path,
+            recent_files::get_recent_files,
+            recent_files::add_to_recent_files,
+            recent_files::clear_recent_files_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Point } from '../model/types';
+import type { Point, Topic } from '../model/types';
 
 export interface UIState {
   // Viewport / Camera
@@ -26,6 +26,9 @@ export interface UIState {
   // Zen Mode
   isZenMode: boolean;
 
+  // Clipboard
+  clipboard: Topic | null;
+
   // Interaction mode
   isDragging: boolean;
   isPanning: boolean;
@@ -48,6 +51,8 @@ export interface UIState {
   toggleZenMode: () => void;
   setZenMode: (zen: boolean) => void;
 
+  setClipboard: (topic: Topic | null) => void;
+
   setDragging: (dragging: boolean) => void;
   setPanning: (panning: boolean) => void;
 
@@ -61,6 +66,7 @@ export const useUIStore = create<UIState>()((set) => ({
   editingTopicId: null,
   hoveredTopicId: null,
   sidebarTab: 'style',
+  clipboard: null,
   sidebarOpen: true,
   viewMode: 'map',
   isZenMode: false,
@@ -120,6 +126,8 @@ export const useUIStore = create<UIState>()((set) => ({
 
   toggleZenMode: () => set((state) => ({ isZenMode: !state.isZenMode })),
   setZenMode: (zen) => set({ isZenMode: zen }),
+
+  setClipboard: (topic) => set({ clipboard: topic }),
 
   setDragging: (dragging) => set({ isDragging: dragging }),
   setPanning: (panning) => set({ isPanning: panning }),

@@ -1,4 +1,4 @@
-# MindForge 테스트 전략
+# Magic Mind 테스트 전략
 
 ## 테스트 레벨
 

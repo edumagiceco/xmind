@@ -1,4 +1,4 @@
-# MindForge 레이아웃 알고리즘
+# Magic Mind 레이아웃 알고리즘
 
 ## 개요
 

@@ -13,6 +13,7 @@ export function MindMapCanvas() {
   const layoutRef = useRef<LayoutResult | null>(null);
   const dropTargetRef = useRef<{ targetId: string; position: 'child' | 'before' | 'after' } | null>(null);
   const isDraggingRef = useRef(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const [editInput, setEditInput] = useState<{
     topicId: string;
@@ -234,22 +235,30 @@ export function MindMapCanvas() {
 
         // Start drag after 5px threshold
         if (!isDragging && Math.sqrt(dx * dx + dy * dy) > 5) {
-          // Don't allow dragging root topic
+          // Root topic drag → pan the camera instead
           if (hitId === rootId) {
-            window.removeEventListener('mousemove', handleDragMove);
-            window.removeEventListener('mouseup', handleDragUp);
-            return;
+            isDragging = true;
+            isDraggingRef.current = true;
+            if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+          } else {
+            isDragging = true;
+            isDraggingRef.current = true;
+            useUIStore.getState().setHoveredTopic(null);
+            const startWorld = renderer.camera.screenToWorld(
+              moveEvent.clientX - canvasRef.current!.getBoundingClientRect().left,
+              moveEvent.clientY - canvasRef.current!.getBoundingClientRect().top,
+              renderer.canvasWidth, renderer.canvasHeight,
+            );
+            renderer.setDragState(hitId, startWorld.x, startWorld.y);
+            if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
           }
-          isDragging = true;
-          isDraggingRef.current = true;
-          useUIStore.getState().setHoveredTopic(null);
-          const startWorld = renderer.camera.screenToWorld(
-            moveEvent.clientX - canvasRef.current!.getBoundingClientRect().left,
-            moveEvent.clientY - canvasRef.current!.getBoundingClientRect().top,
-            renderer.canvasWidth, renderer.canvasHeight,
-          );
-          renderer.setDragState(hitId, startWorld.x, startWorld.y);
-          if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+        }
+
+        // Root drag → pan camera
+        if (isDragging && hitId === rootId) {
+          const currentZoom = useUIStore.getState().camera.zoom;
+          useUIStore.getState().pan(moveEvent.movementX / currentZoom, moveEvent.movementY / currentZoom);
+          return;
         }
 
         if (isDragging) {
@@ -279,6 +288,13 @@ export function MindMapCanvas() {
       const handleDragUp = () => {
         window.removeEventListener('mousemove', handleDragMove);
         window.removeEventListener('mouseup', handleDragUp);
+
+        if (isDragging && hitId === rootId) {
+          // Root drag complete — just clean up
+          isDraggingRef.current = false;
+          if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+          return;
+        }
 
         if (isDragging) {
           // Execute the drop
@@ -353,7 +369,7 @@ export function MindMapCanvas() {
     }
   }, [getWorldCoords]);
 
-  // Arrow key navigation helper
+  // Arrow key navigation helper — spatial navigation for up/down
   const findAdjacentTopic = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     const layout = layoutRef.current;
     const ui = useUIStore.getState();
@@ -397,15 +413,36 @@ export function MindMapCanvas() {
       }
       case 'up':
       case 'down': {
-        if (!parent) return null;
-        const siblings = parent.children.attached;
-        const idx = siblings.findIndex(c => c.id === selectedId);
-        if (idx < 0) return null;
-        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
-        if (newIdx >= 0 && newIdx < siblings.length) {
-          return siblings[newIdx].id;
+        // Spatial navigation: find the visually closest node in the direction
+        const cx = currentNode.x + currentNode.width / 2;
+        const cy = currentNode.y + currentNode.height / 2;
+        let bestId: string | null = null;
+        let bestScore = Infinity;
+
+        for (const [id, node] of layout.nodes) {
+          if (id === selectedId) continue;
+          const nx = node.x + node.width / 2;
+          const ny = node.y + node.height / 2;
+          const dy = ny - cy;
+
+          // Filter: must be in the correct direction (with min threshold)
+          if (direction === 'down' && dy <= 5) continue;
+          if (direction === 'up' && dy >= -5) continue;
+
+          const absDy = Math.abs(dy);
+          const absDx = Math.abs(nx - cx);
+
+          // Score: prefer vertical proximity with horizontal alignment penalty
+          // Nodes at similar X position are strongly preferred
+          const score = absDy + absDx * 3;
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestId = id;
+          }
         }
-        return null;
+
+        return bestId;
       }
     }
   }, []);
@@ -444,6 +481,38 @@ export function MindMapCanvas() {
         return;
       }
 
+      // Copy/Cut/Paste work even without editing check (but not while editing text)
+      if ((e.metaKey || e.ctrlKey) && !ui.editingTopicId) {
+        const selected = ui.selectedTopicIds[0];
+        if (e.key === 'c' || e.key === 'C') {
+          if (selected && !e.shiftKey) {
+            e.preventDefault();
+            const copied = useDocumentStore.getState().copyTopic(selected);
+            if (copied) ui.setClipboard(copied);
+            return;
+          }
+        }
+        if (e.key === 'x' || e.key === 'X') {
+          if (selected && !e.shiftKey) {
+            e.preventDefault();
+            const cut = useDocumentStore.getState().cutTopic(selected);
+            if (cut) {
+              ui.setClipboard(cut);
+              ui.clearSelection();
+            }
+            return;
+          }
+        }
+        if (e.key === 'v' || e.key === 'V') {
+          if (selected && ui.clipboard && !e.shiftKey) {
+            e.preventDefault();
+            const newId = useDocumentStore.getState().pasteTopic(selected, ui.clipboard);
+            ui.selectTopic(newId);
+            return;
+          }
+        }
+      }
+
       // Don't handle if editing text
       if (ui.editingTopicId) return;
 
@@ -472,8 +541,17 @@ export function MindMapCanvas() {
         case 'Delete':
         case 'Backspace': {
           e.preventDefault();
-          doc.deleteTopic(selected);
-          ui.clearSelection();
+          let nextId: string | null;
+          if (ui.selectedTopicIds.length > 1) {
+            nextId = doc.deleteTopics(ui.selectedTopicIds);
+          } else {
+            nextId = doc.deleteTopic(selected);
+          }
+          if (nextId) {
+            ui.selectTopic(nextId);
+          } else {
+            ui.clearSelection();
+          }
           break;
         }
         case ' ': {
@@ -588,9 +666,11 @@ export function MindMapCanvas() {
       />
       {editInput && (
         <input
+          ref={editInputRef}
           type="text"
           autoFocus
           value={editInput.value}
+          onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setEditInput({ ...editInput, value: e.target.value })}
           onBlur={handleEditSubmit}
           onKeyDown={handleEditKeyDown}

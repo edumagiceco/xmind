@@ -41,7 +41,16 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       { id: 'redo', label: '다시 실행', category: '편집', shortcut: '⌘⇧Z', action: () => useDocumentStore.temporal.getState().redo() },
       { id: 'add-child', label: '하위 토픽 추가', category: '편집', shortcut: 'Tab', action: () => { const s = selected(); if (s) { const id = doc().addChildTopic(s); ui().selectTopic(id); } } },
       { id: 'add-sibling', label: '형제 토픽 추가', category: '편집', shortcut: 'Enter', action: () => { const s = selected(); if (s) { const id = doc().addSiblingTopic(s); if (id) ui().selectTopic(id); } } },
-      { id: 'delete', label: '토픽 삭제', category: '편집', shortcut: 'Delete', action: () => { const s = selected(); if (s) doc().deleteTopic(s); } },
+      { id: 'delete', label: '토픽 삭제', category: '편집', shortcut: 'Delete', action: () => {
+        const ids = ui().selectedTopicIds;
+        let nextId: string | null = null;
+        if (ids.length > 1) { nextId = doc().deleteTopics(ids); }
+        else if (ids.length === 1) { nextId = doc().deleteTopic(ids[0]); }
+        if (nextId) { ui().selectTopic(nextId); } else { ui().clearSelection(); }
+      } },
+      { id: 'copy', label: '토픽 복사', category: '편집', shortcut: '⌘C', action: () => { const s = selected(); if (s) { const copied = doc().copyTopic(s); if (copied) ui().setClipboard(copied); } } },
+      { id: 'cut', label: '토픽 잘라내기', category: '편집', shortcut: '⌘X', action: () => { const s = selected(); if (s) { const cut = doc().cutTopic(s); if (cut) { ui().setClipboard(cut); ui().clearSelection(); } } } },
+      { id: 'paste', label: '토픽 붙여넣기', category: '편집', shortcut: '⌘V', action: () => { const s = selected(); const clip = ui().clipboard; if (s && clip) { const newId = doc().pasteTopic(s, clip); ui().selectTopic(newId); } } },
       { id: 'edit', label: '토픽 이름 편집', category: '편집', shortcut: 'F2', action: () => { const s = selected(); if (s) ui().startEditing(s); } },
       // Move
       { id: 'move-up', label: '위로 이동', category: '이동', shortcut: '⌥↑', action: () => { const s = selected(); if (s) doc().moveTopicUp(s); } },

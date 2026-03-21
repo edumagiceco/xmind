@@ -10,7 +10,7 @@ const MIN_NODE_HEIGHT = 30;
 
 /**
  * Logic Chart layout: root on left, all children flow to the RIGHT.
- * Similar to mind-map's right side but with no left-right split.
+ * Bracket-style orthogonal connections with uniform node widths per depth level.
  */
 export function logicChartLayout(
   rootTopic: Topic,
@@ -22,17 +22,22 @@ export function logicChartLayout(
   // Step 1: Build layout tree with measured sizes
   const root = buildLayoutTree(rootTopic, 0, null, measure, nodes);
 
-  // Step 2: Mark all children as right-flowing
+  // Step 2: Uniform widths per depth level
+  const maxWidthByDepth = new Map<number, number>();
+  collectMaxWidths(root, maxWidthByDepth);
+  applyUniformWidths(root, maxWidthByDepth);
+
+  // Step 3: Mark all children as right-flowing
   markDirection(root);
 
-  // Step 3: Compute total height for root's children
+  // Step 4: Compute total height for root's children
   const totalHeight = computeChildrenTotalHeight(root);
 
-  // Step 4: Position root at left
+  // Step 5: Position root at left
   root.x = -root.width / 2;
   root.y = -root.height / 2;
 
-  // Step 5: Position all children to the right
+  // Step 6: Position all children to the right
   if (root.children.length > 0) {
     const startX = root.x + root.width + HORIZONTAL_GAP;
     const startY = -totalHeight / 2;
@@ -40,6 +45,23 @@ export function logicChartLayout(
   }
 
   return { root, nodes };
+}
+
+function collectMaxWidths(node: LayoutNode, maxWidths: Map<number, number>): void {
+  const current = maxWidths.get(node.depth) ?? 0;
+  if (node.width > current) {
+    maxWidths.set(node.depth, node.width);
+  }
+  for (const child of node.children) {
+    collectMaxWidths(child, maxWidths);
+  }
+}
+
+function applyUniformWidths(node: LayoutNode, maxWidths: Map<number, number>): void {
+  node.width = maxWidths.get(node.depth) ?? node.width;
+  for (const child of node.children) {
+    applyUniformWidths(child, maxWidths);
+  }
 }
 
 function buildLayoutTree(

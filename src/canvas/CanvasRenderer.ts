@@ -5,6 +5,9 @@ import { getTopicStyle, getTheme } from '../themes/ThemeEngine';
 import { getMarkerIcon } from '../model/markers';
 import { Quadtree, buildQuadtree } from './Quadtree';
 
+/** Half the horizontal gap between parent and child — used as bracket trunk offset */
+const LOGIC_CHART_BRACKET_GAP = 30;
+
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -270,6 +273,46 @@ export class CanvasRenderer {
   private renderConnections(node: LayoutNode, _defaultColor: string) {
     const theme = getTheme(this.themeId);
 
+    // Logic Chart: bracket/elbow-style orthogonal connections (batch per parent)
+    if (this.structureType === 'logic-chart' && node.children.length > 0) {
+      const style = getTopicStyle(node.children[0], theme, this.mapSettings);
+      const lineColor = style.lineColor ?? theme.connectionStyle.lineColor;
+      const lineWidth = theme.connectionStyle.lineWidth;
+
+      this.ctx.strokeStyle = lineColor;
+      this.ctx.lineWidth = lineWidth;
+      this.ctx.beginPath();
+
+      const parentCenterY = node.y + node.height / 2;
+      const startX = node.x + node.width;
+      const midX = startX + LOGIC_CHART_BRACKET_GAP;
+
+      // Horizontal line from parent right edge to vertical trunk
+      this.ctx.moveTo(startX, parentCenterY);
+      this.ctx.lineTo(midX, parentCenterY);
+
+      // Vertical trunk spanning all children
+      const firstChildCenterY = node.children[0].y + node.children[0].height / 2;
+      const lastChildCenterY = node.children[node.children.length - 1].y + node.children[node.children.length - 1].height / 2;
+      this.ctx.moveTo(midX, firstChildCenterY);
+      this.ctx.lineTo(midX, lastChildCenterY);
+
+      // Horizontal lines from trunk to each child
+      for (const child of node.children) {
+        const childCenterY = child.y + child.height / 2;
+        this.ctx.moveTo(midX, childCenterY);
+        this.ctx.lineTo(child.x, childCenterY);
+      }
+
+      this.ctx.stroke();
+
+      // Recurse into children
+      for (const child of node.children) {
+        this.renderConnections(child, lineColor);
+      }
+      return;
+    }
+
     for (const child of node.children) {
       const style = getTopicStyle(child, theme, this.mapSettings);
       const lineColor = style.lineColor ?? theme.connectionStyle.lineColor;
@@ -284,7 +327,6 @@ export class CanvasRenderer {
 
       if (child.branchDirection === 'down' && this.structureType === 'tree-chart') {
         // Tree Chart: orthogonal L-shaped lines
-        // Vertical line from parent's left-bottom area, then horizontal to child
         const trunkX = node.x + 8;
         const startY = node.y + node.height;
         const endY = child.y + child.height / 2;

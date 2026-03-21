@@ -46,6 +46,58 @@ function touch(draft: Workbook) {
   draft.metadata.modifiedAt = new Date().toISOString();
 }
 
+// Deep clone a topic tree, assigning new IDs to all nodes
+function cloneTopicWithNewIds(topic: Topic): Topic {
+  return {
+    ...topic,
+    id: generateId(),
+    children: {
+      attached: topic.children.attached.map(cloneTopicWithNewIds),
+      detached: topic.children.detached.map(cloneTopicWithNewIds),
+    },
+    markers: [...topic.markers],
+    labels: [...topic.labels],
+    notes: topic.notes ? topic.notes.map((b) => ({ ...b, children: b.children.map((s) => ({ ...s })) })) : undefined,
+    richText: topic.richText ? topic.richText.map((b) => ({ ...b, children: b.children.map((s) => ({ ...s })) })) : undefined,
+    style: topic.style ? { ...topic.style } : undefined,
+    image: topic.image ? { ...topic.image } : undefined,
+  };
+}
+
+// Deep clone a topic tree, preserving original IDs (for clipboard storage)
+function deepCloneTopic(topic: Topic): Topic {
+  return {
+    ...topic,
+    id: topic.id,
+    children: {
+      attached: topic.children.attached.map(deepCloneTopic),
+      detached: topic.children.detached.map(deepCloneTopic),
+    },
+    markers: [...topic.markers],
+    labels: [...topic.labels],
+    notes: topic.notes ? topic.notes.map((b) => ({ ...b, children: b.children.map((s) => ({ ...s })) })) : undefined,
+    richText: topic.richText ? topic.richText.map((b) => ({ ...b, children: b.children.map((s) => ({ ...s })) })) : undefined,
+    style: topic.style ? { ...topic.style } : undefined,
+    image: topic.image ? { ...topic.image } : undefined,
+  };
+}
+
+/**
+ * Determine the best topic to select after deleting the given topic.
+ * Priority: next sibling → previous sibling → parent.
+ */
+function getNextSelectionAfterDelete(root: Topic, topicId: string): string | null {
+  const result = findTopic(root, topicId);
+  if (!result || !result[1]) return null;
+  const parent = result[1];
+  const siblings = parent.children.attached;
+  const idx = siblings.findIndex((c) => c.id === topicId);
+  if (idx === -1) return parent.id;
+  if (idx < siblings.length - 1) return siblings[idx + 1].id;
+  if (idx > 0) return siblings[idx - 1].id;
+  return parent.id;
+}
+
 export interface DocumentState {
   workbook: Workbook;
   activeSheetId: string;
@@ -68,7 +120,11 @@ export interface DocumentState {
   updateTopicTitle: (topicId: string, title: string) => void;
   addChildTopic: (parentId: string) => string;
   addSiblingTopic: (topicId: string) => string | null;
-  deleteTopic: (topicId: string) => void;
+  deleteTopic: (topicId: string) => string | null;
+  deleteTopics: (topicIds: string[]) => string | null;
+  copyTopic: (topicId: string) => Topic | null;
+  cutTopic: (topicId: string) => Topic | null;
+  pasteTopic: (targetParentId: string, clipboardTopic: Topic) => string;
   toggleCollapse: (topicId: string) => void;
   moveTopic: (topicId: string, newParentId: string, index?: number) => void;
 
@@ -223,20 +279,82 @@ export const useDocumentStore = create<DocumentState>()(
         return newId;
       },
 
-      deleteTopic: (topicId: string) =>
-        set((state) => {
-          const sheet = getSheet(state.workbook, state.activeSheetId);
-          if (sheet.rootTopic.id === topicId) return state;
-          return {
-            workbook: produce(state.workbook, (draft) => {
-              const draftSheet = getSheet(draft, state.activeSheetId);
-              const result = findTopic(draftSheet.rootTopic, topicId);
-              if (result && result[1]) removeTopic(result[1], topicId);
-              touch(draft);
-            }),
-            isDirty: true,
-          };
-        }),
+      deleteTopic: (topicId: string) => {
+        const state = get();
+        const sheet = getSheet(state.workbook, state.activeSheetId);
+        if (sheet.rootTopic.id === topicId) return null;
+        const nextId = getNextSelectionAfterDelete(sheet.rootTopic, topicId);
+        set({
+          workbook: produce(state.workbook, (draft) => {
+            const draftSheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(draftSheet.rootTopic, topicId);
+            if (result && result[1]) removeTopic(result[1], topicId);
+            touch(draft);
+          }),
+          isDirty: true,
+        });
+        return nextId;
+      },
+
+      deleteTopics: (topicIds: string[]) => {
+        const state = get();
+        const sheet = getSheet(state.workbook, state.activeSheetId);
+        const rootId = sheet.rootTopic.id;
+        const idsToDelete = topicIds.filter((id) => id !== rootId);
+        if (idsToDelete.length === 0) return null;
+        // Pick the first topic's nearest neighbor as next selection
+        const nextId = getNextSelectionAfterDelete(sheet.rootTopic, idsToDelete[0]);
+        // If nextId is also being deleted, fall back to root
+        const safeNextId = nextId && idsToDelete.includes(nextId) ? rootId : nextId;
+        set({
+          workbook: produce(state.workbook, (draft) => {
+            const draftSheet = getSheet(draft, state.activeSheetId);
+            for (const id of idsToDelete) {
+              const result = findTopic(draftSheet.rootTopic, id);
+              if (result && result[1]) removeTopic(result[1], id);
+            }
+            touch(draft);
+          }),
+          isDirty: true,
+        });
+        return safeNextId;
+      },
+
+      copyTopic: (topicId: string) => {
+        const state = get();
+        const sheet = getSheet(state.workbook, state.activeSheetId);
+        const result = findTopic(sheet.rootTopic, topicId);
+        if (!result) return null;
+        return deepCloneTopic(result[0]);
+      },
+
+      cutTopic: (topicId: string) => {
+        const state = get();
+        const sheet = getSheet(state.workbook, state.activeSheetId);
+        if (sheet.rootTopic.id === topicId) return null;
+        const result = findTopic(sheet.rootTopic, topicId);
+        if (!result) return null;
+        const cloned = deepCloneTopic(result[0]);
+        get().deleteTopic(topicId);
+        return cloned;
+      },
+
+      pasteTopic: (targetParentId: string, clipboardTopic: Topic) => {
+        const newTopic = cloneTopicWithNewIds(clipboardTopic);
+        set((state) => ({
+          workbook: produce(state.workbook, (draft) => {
+            const sheet = getSheet(draft, state.activeSheetId);
+            const result = findTopic(sheet.rootTopic, targetParentId);
+            if (result) {
+              result[0].children.attached.push(newTopic);
+              result[0].collapsed = false;
+            }
+            touch(draft);
+          }),
+          isDirty: true,
+        }));
+        return newTopic.id;
+      },
 
       toggleCollapse: (topicId: string) =>
         set((state) => ({

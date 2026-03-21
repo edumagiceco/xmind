@@ -63,6 +63,31 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
       return;
     }
 
+    // Copy/Cut/Paste
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        const copied = doc.copyTopic(topic.id);
+        if (copied) ui.setClipboard(copied);
+        return;
+      }
+      if ((e.key === 'x' || e.key === 'X') && !isRoot) {
+        e.preventDefault();
+        const cut = doc.cutTopic(topic.id);
+        if (cut) { ui.setClipboard(cut); ui.clearSelection(); }
+        return;
+      }
+      if (e.key === 'v' || e.key === 'V') {
+        const clip = useUIStore.getState().clipboard;
+        if (clip) {
+          e.preventDefault();
+          const newId = doc.pasteTopic(topic.id, clip);
+          ui.selectTopic(newId);
+        }
+        return;
+      }
+    }
+
     if (e.key === 'Tab') {
       e.preventDefault();
       const newId = doc.addChildTopic(topic.id);
@@ -80,7 +105,8 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (!isRoot) {
         e.preventDefault();
-        doc.deleteTopic(topic.id);
+        const nextId = doc.deleteTopic(topic.id);
+        if (nextId) { ui.selectTopic(nextId); } else { ui.clearSelection(); }
       }
     } else if (e.key === 'F2') {
       e.preventDefault();
@@ -189,7 +215,8 @@ export const OutlinerItem = React.memo(function OutlinerItem({ topic, depth, isR
               title="삭제"
               onClick={(e) => {
                 e.stopPropagation();
-                doc.deleteTopic(topic.id);
+                const nextId = doc.deleteTopic(topic.id);
+                if (nextId) { ui.selectTopic(nextId); } else { ui.clearSelection(); }
               }}
             >
               <Trash2 size={12} />

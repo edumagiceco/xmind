@@ -331,7 +331,7 @@ function propertiesToTopicStyle(props: Record<string, string>): Topic['style'] {
 
 export function createXMindMetadata() {
   return {
-    creator: { name: 'MindForge', version: '1.0.0' },
+    creator: { name: 'Magic Mind', version: '1.0.0' },
     dataStructureVersion: '3',
     layoutEngineVersion: '5',
     activeSheetId: '',

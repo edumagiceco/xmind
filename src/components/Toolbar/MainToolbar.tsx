@@ -193,7 +193,10 @@ export function MainToolbar() {
         title="Delete Topic (Delete)"
         onClick={() => {
           const selected = selectedTopicIds[0];
-          if (selected) useDocumentStore.getState().deleteTopic(selected);
+          if (selected) {
+            const nextId = useDocumentStore.getState().deleteTopic(selected);
+            if (nextId) { useUIStore.getState().selectTopic(nextId); } else { useUIStore.getState().clearSelection(); }
+          }
         }}
         disabled={selectedTopicIds.length === 0}
       />
