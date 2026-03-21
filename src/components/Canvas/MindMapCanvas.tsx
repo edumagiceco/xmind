@@ -473,6 +473,22 @@ export function MindMapCanvas() {
           ui.toggleZenMode();
           return;
         }
+        // Cmd+= / Cmd+- : zoom in/out, Cmd+0 : reset
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          ui.zoom(1.2, { x: 0, y: 0 });
+          return;
+        }
+        if (e.key === '-') {
+          e.preventDefault();
+          ui.zoom(1 / 1.2, { x: 0, y: 0 });
+          return;
+        }
+        if (e.key === '0') {
+          e.preventDefault();
+          ui.resetView();
+          return;
+        }
       }
 
       // ESC exits Zen Mode
