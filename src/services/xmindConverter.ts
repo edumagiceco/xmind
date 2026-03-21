@@ -301,11 +301,17 @@ function topicStyleToProperties(style: NonNullable<Topic['style']>): Record<stri
   if (style.fillColor) props['svg:fill'] = style.fillColor;
   if (style.borderColor) props['border-line-color'] = style.borderColor;
   if (style.borderWidth) props['border-line-width'] = `${style.borderWidth}pt`;
+  if (style.borderStyle) props['border-line-style'] = style.borderStyle;
   if (style.fontFamily) props['fo:font-family'] = style.fontFamily;
   if (style.fontSize) props['fo:font-size'] = `${style.fontSize}pt`;
   if (style.fontColor) props['fo:color'] = style.fontColor;
   if (style.fontWeight) props['fo:font-weight'] = style.fontWeight === 'bold' ? 'bold' : 'normal';
+  if (style.fontStyle) props['fo:font-style'] = style.fontStyle;
+  if (style.textDecoration) props['fo:text-decoration'] = style.textDecoration;
+  if (style.textAlign) props['fo:text-align'] = style.textAlign;
   if (style.lineColor) props['line-color'] = style.lineColor;
+  if (style.lineWidth) props['line-width'] = `${style.lineWidth}pt`;
+  if (style.lineStyle) props['line-style'] = style.lineStyle;
   if (style.shape) props['shape-class'] = `org.xmind.topicShape.${style.shape}`;
   return props;
 }
@@ -315,11 +321,17 @@ function propertiesToTopicStyle(props: Record<string, string>): Topic['style'] {
   if (props['svg:fill']) style.fillColor = props['svg:fill'];
   if (props['border-line-color']) style.borderColor = props['border-line-color'];
   if (props['border-line-width']) style.borderWidth = parseFloat(props['border-line-width']);
+  if (props['border-line-style']) style.borderStyle = props['border-line-style'] as NonNullable<Topic['style']>['borderStyle'];
   if (props['fo:font-family']) style.fontFamily = props['fo:font-family'];
   if (props['fo:font-size']) style.fontSize = parseFloat(props['fo:font-size']);
   if (props['fo:color']) style.fontColor = props['fo:color'];
   if (props['fo:font-weight']) style.fontWeight = props['fo:font-weight'] === 'bold' ? 'bold' : 'normal';
+  if (props['fo:font-style']) style.fontStyle = props['fo:font-style'] as NonNullable<Topic['style']>['fontStyle'];
+  if (props['fo:text-decoration']) style.textDecoration = props['fo:text-decoration'] as NonNullable<Topic['style']>['textDecoration'];
+  if (props['fo:text-align']) style.textAlign = props['fo:text-align'] as NonNullable<Topic['style']>['textAlign'];
   if (props['line-color']) style.lineColor = props['line-color'];
+  if (props['line-width']) style.lineWidth = parseFloat(props['line-width']);
+  if (props['line-style']) style.lineStyle = props['line-style'] as NonNullable<Topic['style']>['lineStyle'];
   if (props['shape-class']) {
     const shapeStr = props['shape-class'].replace('org.xmind.topicShape.', '');
     style.shape = shapeStr as NonNullable<Topic['style']>['shape'];
