@@ -40,6 +40,7 @@ export interface UIState {
   resetView: () => void;
 
   selectTopic: (topicId: string, append?: boolean) => void;
+  setSelectedTopicIds: (ids: string[]) => void;
   clearSelection: () => void;
   startEditing: (topicId: string) => void;
   stopEditing: () => void;
@@ -107,6 +108,8 @@ export const useUIStore = create<UIState>()((set) => ({
           : [...state.selectedTopicIds, topicId]
         : [topicId],
     })),
+
+  setSelectedTopicIds: (ids) => set({ selectedTopicIds: ids, editingTopicId: null }),
 
   clearSelection: () => set({ selectedTopicIds: [], editingTopicId: null }),
 

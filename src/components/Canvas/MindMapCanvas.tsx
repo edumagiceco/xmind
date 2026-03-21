@@ -339,21 +339,48 @@ export function MindMapCanvas() {
     } else {
       useUIStore.getState().clearSelection();
 
-      // Start panning
-      const handlePanMove = (moveEvent: MouseEvent) => {
-        const currentZoom = useUIStore.getState().camera.zoom;
-        const dx = moveEvent.movementX / currentZoom;
-        const dy = moveEvent.movementY / currentZoom;
-        useUIStore.getState().pan(dx, dy);
+      // Marquee selection on empty area drag
+      const startWorld = { ...world };
+      let isMarquee = false;
+
+      const handleMarqueeMove = (moveEvent: MouseEvent) => {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const currentWorld = renderer.camera.screenToWorld(
+          moveEvent.clientX - rect.left,
+          moveEvent.clientY - rect.top,
+          renderer.canvasWidth, renderer.canvasHeight,
+        );
+
+        const dx = moveEvent.clientX - e.clientX;
+        const dy = moveEvent.clientY - e.clientY;
+
+        if (!isMarquee && Math.sqrt(dx * dx + dy * dy) > 5) {
+          isMarquee = true;
+        }
+
+        if (isMarquee) {
+          renderer.setMarquee({
+            x1: startWorld.x, y1: startWorld.y,
+            x2: currentWorld.x, y2: currentWorld.y,
+          });
+
+          // Live-select nodes inside marquee
+          const ids = renderer.findNodesInRect(
+            startWorld.x, startWorld.y,
+            currentWorld.x, currentWorld.y,
+          );
+          useUIStore.getState().setSelectedTopicIds(ids);
+        }
       };
 
-      const handlePanUp = () => {
-        window.removeEventListener('mousemove', handlePanMove);
-        window.removeEventListener('mouseup', handlePanUp);
+      const handleMarqueeUp = () => {
+        window.removeEventListener('mousemove', handleMarqueeMove);
+        window.removeEventListener('mouseup', handleMarqueeUp);
+        renderer.setMarquee(null);
       };
 
-      window.addEventListener('mousemove', handlePanMove);
-      window.addEventListener('mouseup', handlePanUp);
+      window.addEventListener('mousemove', handleMarqueeMove);
+      window.addEventListener('mouseup', handleMarqueeUp);
     }
   }, [getWorldCoords]);
 

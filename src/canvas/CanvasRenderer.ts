@@ -30,6 +30,9 @@ export class CanvasRenderer {
   private imageCache = new Map<string, HTMLImageElement>();
   private pendingImages = new Set<string>();
 
+  // Marquee selection state
+  private marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
+
   // Drag state
   private dragId: string | null = null;
   private dragWorldX = 0;
@@ -113,6 +116,32 @@ export class CanvasRenderer {
     this.dropTargetId = targetId;
     this.dropPosition = position;
     this.needsRender = true;
+  }
+
+  setMarquee(rect: { x1: number; y1: number; x2: number; y2: number } | null) {
+    this.marquee = rect;
+    this.needsRender = true;
+  }
+
+  /** Find all node IDs whose bounds intersect the given world-space rectangle */
+  findNodesInRect(x1: number, y1: number, x2: number, y2: number): string[] {
+    if (!this.layout) return [];
+    const minX = Math.min(x1, x2);
+    const minY = Math.min(y1, y2);
+    const maxX = Math.max(x1, x2);
+    const maxY = Math.max(y1, y2);
+    const result: string[] = [];
+    const check = (node: LayoutNode) => {
+      if (
+        node.x + node.width >= minX && node.x <= maxX &&
+        node.y + node.height >= minY && node.y <= maxY
+      ) {
+        result.push(node.id);
+      }
+      for (const child of node.children) check(child);
+    };
+    check(this.layout.root);
+    return result;
   }
 
   clearDragState() {
@@ -271,6 +300,24 @@ export class CanvasRenderer {
         this.renderDropIndicator();
       }
       this.renderDragGhost();
+    }
+
+    // Draw marquee selection rectangle
+    if (this.marquee) {
+      const { x1, y1, x2, y2 } = this.marquee;
+      const mx = Math.min(x1, x2);
+      const my = Math.min(y1, y2);
+      const mw = Math.abs(x2 - x1);
+      const mh = Math.abs(y2 - y1);
+      ctx.save();
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.fillRect(mx, my, mw, mh);
+      ctx.strokeRect(mx, my, mw, mh);
+      ctx.setLineDash([]);
+      ctx.restore();
     }
   }
 
